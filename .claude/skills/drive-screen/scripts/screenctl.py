@@ -25,9 +25,14 @@ time anyone can see that happened, it already has.
   screenctl.py scroll --title "..." --amount -3
 
 Exit codes: 0 ok, 1 refused (not found / ambiguous / focus unconfirmed / bad input).
+`doctor` exits 1 when any probe fails.
 
 Every run appends one line per action to ~/.screenctl/actions.log, so a run that
 went wrong is inspectable afterwards instead of being reconstructed from memory.
+The log records window titles and character COUNTS, never the text sent: the
+payload of `type` or `paste` can be a secret. Note that `--text` is still a
+command-line argument, visible to shell history and the process list, so pass a
+secret through `--file` and delete the file afterwards.
 """
 
 from __future__ import annotations
@@ -440,7 +445,7 @@ if ({tw} -ne {w}) {{
   $g2.DrawImage($bmp, 0, 0, {tw}, {th})
   $g2.Dispose(); $bmp.Dispose(); $bmp = $small
 }}
-$bmp.Save('{out}', [System.Drawing.Imaging.ImageFormat]::Png)
+$bmp.Save('{out.replace("'", "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
 $bmp.Dispose()
 """
         r = run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",

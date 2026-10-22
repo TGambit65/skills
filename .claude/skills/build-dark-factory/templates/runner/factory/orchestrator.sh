@@ -211,6 +211,42 @@ if [ "$AUTONOMY" -lt 1 ]; then
 fi
 
 # =============================================================================
+# 2b. THE DAILY SPEND CAP. The per-run cap bounds a lap; this bounds the day.
+# =============================================================================
+# `--max-budget-usd` stops one agent call. It does nothing about the NEXT call: a fix loop
+# that keeps finding something to fix, or a queue of forty accepted issues, runs lap after
+# lap each under its own cap, and on a 30-minute cron that is 48 laps before anyone
+# looks. `cost.py daily` sums today's run records (UTC) and this refuses to dispatch at or
+# above FACTORY_MAX_DAILY_USD. Checked BEFORE capacity, so a factory over budget says so
+# rather than `at capacity`.
+#
+# Inside an `if`, deliberately: a command whose exit code is being tested does not fire
+# the ERR trap, and `set -e` does not end the tick on it. A `cost.py` that cannot run at
+# all (no python, a corrupt record) still has to fall through to the OVER branch, because
+# an unmeasurable day is not a day under budget.
+DAILY_CAP="${FACTORY_MAX_DAILY_USD:-0}"
+if [ "$DAILY_CAP" != "0" ]; then
+  DAILY_OUT=""
+  if DAILY_OUT="$(python factory/cost.py daily "$DAILY_CAP" 2>&1)"; then
+    log "$DAILY_OUT"
+  else
+    log "DAILY_CAP ${DAILY_OUT:-cost.py daily failed; treating the day as over budget}"
+    log "  nothing dispatched; resets at midnight UTC or when FACTORY_MAX_DAILY_USD is raised"
+    # Once per day, not once per tick: a 30-minute cron would otherwise page you 48 times
+    # about the same fact. The marker lives in the gitignored runs dir and is dated.
+    DAILY_MARK=".factory/runs/daily-cap-$(date -u +%Y%m%d).notified"
+    if [ ! -e "$DAILY_MARK" ] && [ "$DRY_RUN" -eq 0 ]; then
+      mkdir -p .factory/runs 2>/dev/null || true
+      echo "- $(date -u +%FT%TZ)  (orchestrator)  daily spend cap reached: $DAILY_OUT" \
+        >> .factory/needs-human.md 2>/dev/null || true
+      log "$(factory_notify "orchestrator" "daily spend cap reached; nothing dispatches until midnight UTC: $DAILY_OUT")" || true
+      : > "$DAILY_MARK" 2>/dev/null || true
+    fi
+    exit 0
+  fi
+fi
+
+# =============================================================================
 # 3. CONCURRENCY. Starts at one. A per-target lock is mandatory above that.
 # =============================================================================
 mkdir -p "$LOCKDIR"

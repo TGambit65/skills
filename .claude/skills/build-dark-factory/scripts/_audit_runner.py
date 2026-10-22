@@ -443,13 +443,25 @@ def audit_skill_text(run: Path, repo: Path | None):
             finding(f"SKILL.md names `{rel}`, which does not exist in the skill")
     checked(f"skill: {len(named)} file paths named, all present")
 
-    # 5. Level 3 is the recommended default. Cole, 2026-08-12: "the skill should rec level
-    #    3 by default." Prose-only instructions are exactly what regresses unwatched.
-    if not re.search(r"(?i)(recommend|default|target)[^.\n]{0,60}\b(?:level\s*)?3\b", text):
-        finding("SKILL.md no longer recommends level 3 as the default, which was an "
-                "explicit instruction and lives only as prose")
-    checked("skill: level 3 is still the recommended default; no cost or duration "
-            "estimates; no positional-substitution hazards")
+    # 5. The dial policy, which lives only as prose and therefore regresses unwatched.
+    #    Level 2 is the RECOMMENDED DEFAULT (validator posts a verdict, a human merges) and
+    #    level 3 is the GOAL the whole build is built for, raised only when the user says so.
+    #    Cole's original instruction was "rec level 3 by default"; the adversarial review of
+    #    2026-10-22 moved the default to 2 because 3 is the first level where code reaches
+    #    users unread, and kept 3 as the stated destination. Both halves are checked: a
+    #    SKILL.md that quietly recommends 3 again, or that drops 3 as the goal, fails here.
+    if not re.search(r"(?i)\*\*recommend level 2\b", text) \
+            or not re.search(r"(?i)level 2 is the default", text):
+        finding("SKILL.md no longer recommends level 2 as the default. Level 3 is the goal "
+                "and an explicit opt-in; the recommendation is 2.")
+    if re.search(r"(?i)\*\*recommend level 3\b", text):
+        finding("SKILL.md recommends level 3 again. 3 is the goal the user opts into in "
+                "their own words, not the default recommendation.")
+    if not re.search(r"(?i)level 3 is the goal", text):
+        finding("SKILL.md no longer names level 3 as the goal. The default is 2, but the "
+                "build is for 3 and the body has to say so or the hard parts lose their reason.")
+    checked("skill: level 2 is the recommended default and level 3 the stated goal; no cost "
+            "or duration estimates; no positional-substitution hazards")
 
 # =============================================================================
 def audit_user_facing_text(run: Path, repo: Path | None):
@@ -482,10 +494,18 @@ def audit_user_facing_text(run: Path, repo: Path | None):
     # Legitimate uses: poll intervals, timeouts, cron cadence, lock ages, lookback windows.
     TECHNICAL = re.compile(
         r"(poll|interval|cron|schedule|timeout|stale|grace|--since|lookback|budget-usd|"
-        r"every \d+ min|e2e_timeout|MINUTES|_s|watchdog|sleep|retry|cooldown)", re.I)
+        r"every \d+ min|e2e_timeout|_s\b|watchdog|sleep|retry|cooldown)", re.I)
+    # The knob names (FACTORY_LOCK_STALE_MINUTES ...) are exempt by their UPPERCASE form
+    # only. `MINUTES` used to sit inside the case-insensitive list above, which exempted
+    # every line containing the word "minutes" - and "they take about two minutes" sat in
+    # SKILL.md unflagged for as long as the check existed. (The `_s` alternative next to it
+    # was followed by a literal backspace byte, not the `\b` it was meant to be, so it
+    # never matched anything either.) A check with a hole the size of its own subject is
+    # decoration.
+    KNOB_NAME = re.compile(r"MINUTES")
     for f in files:
         for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-            if TECHNICAL.search(line):
+            if TECHNICAL.search(line) or KNOB_NAME.search(line):
                 continue
             m = DURATION.search(line)
             if m:

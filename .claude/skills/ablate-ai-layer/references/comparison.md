@@ -53,6 +53,9 @@ followed in each arm:
 | never applicable | This task never exercised it. **No evidence either way.** | Keep it, and mark it untested. Deleting on this is deleting on faith. |
 | inconsistent within an arm | Noise, not signal. | More runs, or a better probe task. |
 
+How many runs is "enough" is a judgment call, not a computed threshold: nothing in
+this skill tests significance. Two per arm is the floor I use, three before acting.
+
 That fourth row is the one people get wrong. A rule the probe task never touched
 looks identical to a rule that made no difference, and they mean opposite things.
 Report them as separate lists and never merge them.
@@ -63,10 +66,11 @@ Report them as separate lists and never merge them.
 
 **Existing code substitutes for the rules file.**
 
-In validation, a stripped run wrote two files. In the file that already contained a
-similar function, it matched all four house conventions perfectly, copying them
-from the neighbour. In the brand-new file, with no local example, it broke them and
-fell back to defaults.
+In one of my own validation runs, a stripped agent wrote two files. In the file that
+already contained a similar function, it matched all four house conventions, copying
+them from the neighbour. In the brand-new file, with no local example, it broke them
+and fell back to defaults. One run, one repo: an illustration of the confound, not a
+measurement of how often it happens.
 
 Same run, same missing CLAUDE.md, opposite results, entirely because of what
 happened to be on screen.
@@ -85,7 +89,7 @@ verdict rests on.
 When a rule is vague, or when you want to find rules you never wrote down, read the
 diffs for these. They are where ablation differences concentrate.
 
-**1. Registration and wiring.** The single most repeatable failure. A new test file
+**1. Registration and wiring.** The most repeatable failure I have seen. A new test file
 not added to an enumerated test script never runs, and the suite stays green. Also:
 modules missing from a barrel or export map, routes or migrations not registered,
 env vars not added to the schema or CI config.
@@ -123,8 +127,9 @@ Prefer, in order:
 
 1. **A test or lint rule.** Deterministic, cannot be ignored, costs no context.
 2. **A hook or pre-commit check.** Runs as code, spends no attention budget.
-3. **An on-demand instruction** (a skill, a path-scoped rule) so it loads only when
-   relevant.
+3. **An on-demand instruction** (a skill, a path-scoped rule) so the body loads only
+   when relevant. A skill is not free, though: its frontmatter description is listed
+   on every session, so keep that line short.
 4. **An always-loaded line.** Last resort. It is charged to every session for the
    rest of the project's life.
 

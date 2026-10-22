@@ -17,10 +17,34 @@ control-vs-stripped pair is a point estimate, and two runs of the SAME arm can
 differ more than the two arms differ. Only a rule that behaves consistently across
 runs is evidence of anything.
 
+What this script writes, and where:
+  * `<repo>/.ablation/<timestamp>/` (or --out): diffs, summary.json, task.md. The
+    directory carries its own `.gitignore` containing `*`, so nothing tracked in
+    the user's repo is edited and `git status` stays clean.
+  * Temporary worktrees under the system temp dir, removed in a `finally` block
+    whether the run succeeded, failed, or timed out (unless --keep-worktrees).
+  * In the stripped arm the removed layer files are restored from HEAD *before*
+    the diff is taken, so a stripped diff never contains "deleted CLAUDE.md":
+    that line would identify the arm and defeat blind grading.
+
+The default agent command is
+    claude -p --output-format json --permission-mode acceptEdits [--model M]
+with the prompt on stdin. Those flags exist in Claude Code's documented CLI at
+the time of writing; verify against your installed version with `claude --help`.
+Note `acceptEdits` auto-approves file edits but NOT arbitrary shell commands, so a
+probe task that must run tests or a build needs e.g.
+    --claude-arg=--allowedTools --claude-arg=Bash
+or a --runner of your own. --dry-run prints the exact command.
+
 Usage:
   python run_ablation.py <repo> --task-file task.md
   python run_ablation.py <repo> --task-file task.md --runs 3 --scope all
   python run_ablation.py <repo> --task-file task.md --dry-run
+
+requires-python: >=3.8. Zero dependencies beyond git and the agent CLI.
+Exit codes: 0 = both arms produced usable runs; 1 = nothing to ablate, or at
+least one arm produced nothing usable (do not grade); 2 = bad arguments (not a
+git repo, missing or empty task file, --runs < 1, agent CLI not found).
 """
 from __future__ import annotations
 
@@ -90,7 +114,9 @@ def build_dependencies(root: Path, targets: list[dict]) -> list[str]:
     for p in root.rglob("*"):
         if not p.is_file() or p.suffix not in SOURCE_SUFFIXES:
             continue
-        if any(part in SKIP for part in p.parts):
+        # Relative parts: an absolute path through a folder named `build` would
+        # otherwise skip the entire repo.
+        if any(part in SKIP for part in p.relative_to(root).parts):
             continue
         try:
             text = p.read_text(encoding="utf-8", errors="replace")
@@ -105,10 +131,15 @@ def build_dependencies(root: Path, targets: list[dict]) -> list[str]:
 
 # ---------------------------------------------------------------- one run
 
-def build_command(model: str | None, runner: str | None) -> tuple[list[str] | str, bool]:
+def build_command(model: str | None, runner: str | None,
+                  claude_args: list[str]) -> tuple[list[str] | str, bool]:
     """Returns (command, use_shell). The prompt always arrives on stdin, never in
     argv: Windows caps a command line at 32,767 chars and a real probe task plus
-    its context blows through that as a misleading 'file not found'."""
+    its context blows through that as a misleading 'file not found'.
+
+    Flags below match Claude Code's documented CLI (`-p`, `--output-format json`,
+    `--permission-mode acceptEdits`, `--model`). Verify against your installed
+    version with `claude --help`; the CLI changes."""
     if runner:
         return runner, True
     exe = shutil.which("claude")
@@ -119,14 +150,16 @@ def build_command(model: str | None, runner: str | None) -> tuple[list[str] | st
     cmd = [exe, "-p", "--output-format", "json", "--permission-mode", "acceptEdits"]
     if model:
         cmd += ["--model", model]
+    cmd += claude_args
     return cmd, False
 
 
 def run_one(root: Path, sha: str, arm: str, index: int, prompt: str,
-            targets: list[dict], model: str | None, runner: str | None,
+            targets: list[dict], cmd, use_shell: bool,
             timeout: int, keep: bool) -> dict:
     """One worktree, one agent session, one diff. Fresh worktree per run so runs
-    never compound on each other."""
+    never compound on each other. Cleanup is in `finally`: a crash, a timeout or
+    an agent error still removes the worktree (unless --keep-worktrees)."""
     tmp = Path(tempfile.mkdtemp(prefix=f"ablate-{arm}-{index}-"))
     wt = tmp / "repo"
     rec: dict = {"arm": arm, "index": index, "removed": [], "ok": False}
@@ -149,7 +182,6 @@ def run_one(root: Path, sha: str, arm: str, index: int, prompt: str,
                 except OSError:
                     pass
 
-        cmd, use_shell = build_command(model, runner)
         proc = subprocess.run(
             cmd, cwd=str(wt), input=prompt, capture_output=True, text=True,
             encoding="utf-8", errors="replace", timeout=timeout, shell=use_shell)
@@ -169,6 +201,13 @@ def run_one(root: Path, sha: str, arm: str, index: int, prompt: str,
             # the measurement, the transcript is only context for grading.
             rec["result_text"] = (proc.stdout or "")[:4000]
             rec["agent_error"] = proc.returncode != 0
+
+        # Put the stripped files back before diffing. Otherwise every stripped
+        # diff opens with "deleted file CLAUDE.md", which names the arm to the
+        # grader and inflates files_changed. The agent has already run; this
+        # changes nothing about what it saw.
+        if rec["removed"]:
+            git(["checkout", "--quiet", sha, "--", *rec["removed"]], wt, check=False)
 
         git(["add", "-A"], wt, check=False)
         rec["diff"] = git(["diff", "--cached"], wt, check=False)
@@ -209,10 +248,21 @@ def main() -> int:
     ap.add_argument("--timeout", type=int, default=1800, help="seconds per run")
     ap.add_argument("--runner", default=None,
                     help="shell command for a non-Claude agent; must read the prompt on stdin")
-    ap.add_argument("--out", default=None)
-    ap.add_argument("--keep-worktrees", action="store_true")
-    ap.add_argument("--dry-run", action="store_true", help="print the plan, run nothing")
+    ap.add_argument("--claude-arg", action="append", default=[], metavar="ARG",
+                    help="extra argument appended to the claude command (repeatable; use "
+                         "--claude-arg=--allowedTools --claude-arg=Bash for tasks that run "
+                         "commands). Ignored with --runner")
+    ap.add_argument("--out", default=None,
+                    help="results directory (default: <repo>/.ablation/<timestamp>)")
+    ap.add_argument("--keep-worktrees", action="store_true",
+                    help="leave each run's worktree in the temp dir for inspection")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the plan and the exact agent command, run nothing, write nothing")
     args = ap.parse_args()
+
+    if args.runs < 1:
+        print("--runs must be at least 1 per arm.", file=sys.stderr)
+        return 2
 
     try:
         root = repo_root(Path(args.repo).resolve())
@@ -221,10 +271,20 @@ def main() -> int:
         print("Ablation needs git: the experiment runs in worktrees.", file=sys.stderr)
         return 2
 
-    prompt = Path(args.task_file).read_text(encoding="utf-8").strip()
+    task_path = Path(args.task_file)
+    if not task_path.is_file():
+        print(f"Task file not found: {task_path}", file=sys.stderr)
+        return 2
+    prompt = task_path.read_text(encoding="utf-8").strip()
     if not prompt:
         print("The task file is empty. The probe task decides whether this experiment "
               "can detect anything; it cannot be blank.", file=sys.stderr)
+        return 2
+
+    try:
+        cmd, use_shell = build_command(args.model, args.runner, args.claude_arg)
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
         return 2
 
     targets = layer_targets(root, args.scope)
@@ -256,18 +316,24 @@ def main() -> int:
     print(f"\nplan    {args.runs} control + {args.runs} stripped = {total} agent runs, "
           f"{args.jobs} at a time")
     print(f"        model {args.model or '(session default)'}, timeout {args.timeout}s each")
-    print("        your working tree is never touched; every run is a throwaway worktree")
+    print(f"        agent   {cmd if use_shell else ' '.join(cmd)}   (prompt on stdin)")
+    print("        your tracked files are never edited; every run is a throwaway worktree,")
+    print(f"        results go to {args.out or (root / '.ablation' / '<timestamp>')} (self-ignored)")
+    if not args.runner and "--allowedTools" not in args.claude_arg:
+        print("        note: acceptEdits approves file edits, not arbitrary shell commands. If")
+        print("        the task must run tests or a build, add --claude-arg=--allowedTools "
+              "--claude-arg=Bash")
     if args.dry_run:
-        print("\n--dry-run: nothing executed.")
+        print("\n--dry-run: nothing executed, nothing written.")
         return 0
 
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     out = Path(args.out) if args.out else root / ".ablation" / stamp
     out.mkdir(parents=True, exist_ok=True)
-    gi = root / ".gitignore"
-    if not gi.exists() or ".ablation" not in gi.read_text(encoding="utf-8", errors="replace"):
-        with gi.open("a", encoding="utf-8") as fh:
-            fh.write("\n# ablate-ai-layer experiment artifacts\n.ablation/\n")
+    # Self-ignoring results dir: nothing tracked in the user's repo is edited.
+    abl = root / ".ablation"
+    if abl.exists() and not (abl / ".gitignore").exists():
+        (abl / ".gitignore").write_text("*\n", encoding="utf-8")
 
     jobs = [(arm, i) for arm in (CONTROL, STRIPPED) for i in range(1, args.runs + 1)]
     print(f"\nrunning {total} sessions, writing to {out}\n")
@@ -275,7 +341,7 @@ def main() -> int:
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
         futures = {
             pool.submit(run_one, root, sha, arm, i, prompt, targets,
-                        args.model, args.runner, args.timeout, args.keep_worktrees): (arm, i)
+                        cmd, use_shell, args.timeout, args.keep_worktrees): (arm, i)
             for arm, i in jobs
         }
         for fut in concurrent.futures.as_completed(futures):
@@ -294,6 +360,7 @@ def main() -> int:
     summary = {
         "repo": str(root), "base_sha": sha, "scope": args.scope,
         "runs_per_arm": args.runs, "model": args.model,
+        "agent_command": cmd if use_shell else " ".join(cmd),
         "prompt": prompt, "stripped_files": [t["path"] for t in targets],
         "build_dependency_warnings": deps,
         "runs": [{k: v for k, v in r.items() if k != "diff"} for r in records],

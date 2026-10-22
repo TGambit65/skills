@@ -6,14 +6,25 @@ classifies each by WHEN it loads, and estimates what the always-loaded set costs
 on every single session.
 
   always-loaded : enters context every session whether the task needs it or not
-  on-demand     : costs nothing until invoked or until its path matches
+  on-demand     : the BODY loads only when invoked or when its path matches.
+                  A skill's frontmatter `description` is NOT on demand: the agent
+                  lists every skill's name and description in context on every
+                  session so it can decide what to invoke. That line is counted
+                  as always-loaded below, separately from the body.
   enforcement   : deterministic, executes as code, spends no attention budget
+
+Token figures are an approximation: characters / 4. Real tokenisers vary by
+model and by content; use the numbers to compare before/after, not as a bill.
 
 Usage:
   python map_layer.py [repo_root] [--json]
+
+requires-python: >=3.8. Zero dependencies.
+Exit codes: 0 = ran (including "nothing found"), 2 = repo_root is not a directory.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -57,9 +68,22 @@ PATTERNS: list[tuple[str, str, str, str]] = [
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build",
              "__pycache__", ".next", "target", ".ablation"}
 
+# Files whose frontmatter `description` is listed in context every session even
+# though the body is on demand. Skills are the documented case for Claude Code
+# and Codex. Subagents and commands are also listed by name in some agents; they
+# are not counted here, so the always-loaded figure is a floor, not a ceiling.
+DESCRIPTION_LISTED = re.compile(r"(^|/)\.(claude|agents)/skills/[^/]+/SKILL\.md$")
+
+
+def est_tokens(chars: int) -> int:
+    """chars / 4, the usual rough English-prose approximation. Stated, not hidden."""
+    return chars // 4
+
 
 def frontmatter(path: Path) -> dict:
-    """Parse leading YAML frontmatter shallowly. No yaml dependency."""
+    """Parse leading YAML frontmatter shallowly. No yaml dependency. Handles the
+    common shapes: `key: value`, quoted values, and a folded/continued value
+    whose following lines are indented (`description: >` or plain wrapping)."""
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except Exception:
@@ -69,11 +93,23 @@ def frontmatter(path: Path) -> dict:
     end = text.find("\n---", 3)
     if end == -1:
         return {}
-    out = {}
+    out: dict = {}
+    key = None
     for line in text[3:end].splitlines():
-        if ":" in line and not line.strip().startswith("#"):
-            k, _, v = line.partition(":")
-            out[k.strip()] = v.strip()
+        if not line.strip() or line.strip().startswith("#"):
+            continue
+        if line[:1] not in (" ", "\t") and ":" in line:
+            key, _, v = line.partition(":")
+            key = key.strip()
+            v = v.strip()
+            if v in (">", "|", ">-", "|-"):
+                v = ""
+            out[key] = v
+        elif key is not None:
+            out[key] = (out[key] + " " + line.strip()).strip()
+    for k, v in out.items():
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+            out[k] = v[1:-1]
     return out
 
 
@@ -103,31 +139,61 @@ def iter_matches(root: Path):
         for p in root.glob(pattern):
             if not p.is_file():
                 continue
-            if any(part in SKIP_DIRS for part in p.parts):
-                continue
             rp = p.relative_to(root)
+            # Skip on the path INSIDE the repo. Checking the absolute path would
+            # hide a whole repo that merely lives under a folder named `build`.
+            if any(part in SKIP_DIRS for part in rp.parts):
+                continue
             if rp in seen:
                 continue
             seen.add(rp)
             kind, why = classify(p, default)
-            yield {
+            text = p.read_text(encoding="utf-8", errors="replace")
+            item = {
                 "path": rp.as_posix(),
                 "agent": agent,
                 "kind": kind,
                 "note": why or note,
                 "bytes": p.stat().st_size,
-                "lines": len(p.read_text(encoding="utf-8", errors="replace").splitlines()),
+                "lines": len(text.splitlines()),
             }
+            if DESCRIPTION_LISTED.search(rp.as_posix()):
+                desc = frontmatter(p).get("description", "")
+                item["description_chars"] = len(desc)
+                item["description_tokens_est"] = est_tokens(len(desc))
+            yield item
 
 
 def main() -> int:
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    root = Path(args[0]).resolve() if args else Path.cwd()
-    as_json = "--json" in sys.argv
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("repo_root", nargs="?", default=".", help="repository to map (default: cwd)")
+    ap.add_argument("--json", action="store_true", help="machine-readable output")
+    args = ap.parse_args()
+
+    root = Path(args.repo_root).expanduser().resolve()
+    if not root.is_dir():
+        print(f"not a directory: {root}", file=sys.stderr)
+        return 2
 
     items = sorted(iter_matches(root), key=lambda d: (d["kind"], d["path"]))
-    if as_json:
-        print(json.dumps({"root": str(root), "artifacts": items}, indent=2))
+    always = [i for i in items if i["kind"] == ALWAYS]
+    listed = [i for i in items if "description_chars" in i]
+    file_tokens = est_tokens(sum(i["bytes"] for i in always))
+    desc_tokens = sum(i["description_tokens_est"] for i in listed)
+    summary = {
+        "always_loaded_files": len(always),
+        "always_loaded_lines": sum(i["lines"] for i in always),
+        "always_loaded_file_tokens_est": file_tokens,
+        "skills_listed": len(listed),
+        "skill_description_chars": sum(i["description_chars"] for i in listed),
+        "skill_description_tokens_est": desc_tokens,
+        "always_loaded_total_tokens_est": file_tokens + desc_tokens,
+        "token_estimate": "chars / 4",
+    }
+
+    if args.json:
+        print(json.dumps({"root": str(root), "summary": summary, "artifacts": items}, indent=2))
         return 0
 
     if not items:
@@ -140,24 +206,33 @@ def main() -> int:
     print(f"Agents detected: {', '.join(agents)}\n")
 
     for kind, header in ((ALWAYS, "ALWAYS LOADED  (paid on every session)"),
-                         (ONDEMAND, "ON DEMAND  (free until it fires)"),
+                         (ONDEMAND, "ON DEMAND  (body loads when it fires; a skill's "
+                                    "description is still listed every session)"),
                          (ENFORCE, "ENFORCEMENT  (deterministic, no attention cost)")):
         group = [i for i in items if i["kind"] == kind]
         if not group:
             continue
         print(f"  {header}")
         for i in group:
-            print(f"    {i['lines']:>5} ln  {i['path']:<52} {i['note']}")
+            extra = ""
+            if "description_chars" in i:
+                extra = f"  [description ~{i['description_tokens_est']} tok, always listed]"
+            print(f"    {i['lines']:>5} ln  {i['path']:<52} {i['note']}{extra}")
         print()
 
-    always = [i for i in items if i["kind"] == ALWAYS]
-    total_bytes = sum(i["bytes"] for i in always)
-    total_lines = sum(i["lines"] for i in always)
-    print(f"  Always-loaded total: {total_lines} lines, roughly {total_bytes // 4:,} tokens "
-          f"on every session before you type anything.")
+    print(f"  Always-loaded files:        {summary['always_loaded_lines']} lines, "
+          f"roughly {file_tokens:,} tokens")
+    if listed:
+        print(f"  Skill descriptions listed:  {len(listed)} skills, "
+              f"{summary['skill_description_chars']:,} chars, roughly {desc_tokens:,} tokens")
+    print(f"  Always-loaded total:        roughly {file_tokens + desc_tokens:,} tokens on every "
+          f"session before you type anything  (estimate: chars / 4)")
     print()
-    print("  Ablate the always-loaded set. Leave the on-demand set alone: it costs")
-    print("  nothing until it fires, so deleting it buys you no context back.")
+    print("  Ablate the always-loaded files first. Skill BODIES are free until a skill")
+    print("  fires, but every skill description is paid for on every session, so a")
+    print("  long skill list is not free: shorten descriptions, or drop skills nobody")
+    print("  invokes. Subagent and command descriptions may be listed too, depending")
+    print("  on the agent; they are not counted here.")
     return 0
 
 

@@ -14,6 +14,7 @@ is the failure that looks like a crash on someone else's laptop.
 from __future__ import annotations
 
 import ast
+import os
 import pathlib
 import struct
 import sys
@@ -143,17 +144,45 @@ check("junk records do not crash it",
 
 # Path mangling: every non-alphanumeric becomes a hyphen. Getting this wrong means
 # the directory is never found and the error blames the wrong thing.
-check("drive letter and separators", sw.mangle(r"C:\Users\me\proj"), "C--Users-me-proj")
-truthy("spaces and parens survive", "-" in sw.mangle(r"C:\Users\me\my proj (v2)"))
+#
+# mangle() resolves the path first, and resolve() is platform-specific: on POSIX a
+# Windows path like C:\Users\me is RELATIVE (no leading slash), so it gets the
+# current directory prepended and the expected value never matches. That is not a
+# bug in mangle(), because real paths on POSIX are POSIX paths. So the exact
+# Windows case runs only on Windows, and POSIX gets its own exact case using an
+# absolute path under / that no symlink will rewrite.
+if os.name == "nt":
+    check("drive letter and separators", sw.mangle(r"C:\Users\me\proj"), "C--Users-me-proj")
+    truthy("spaces and parens survive", "-" in sw.mangle(r"C:\Users\me\my proj (v2)"))
+else:
+    print("skipped: Windows drive-letter mangle cases (os.name != 'nt')")
+    check("posix separators become hyphens",
+          sw.mangle("/nonexistent-screenctl-test/me/proj"),
+          "-nonexistent-screenctl-test-me-proj")
+    truthy("spaces and parens survive",
+           "-" in sw.mangle("/nonexistent-screenctl-test/me/my proj (v2)"))
+# Platform-independent: whatever resolve() prepends, nothing but [A-Za-z0-9-] may remain.
 check("no non-alphanumerics remain",
       any(not (c.isalnum() or c == "-") for c in sw.mangle(r"C:\a b.c(d)\e")), False)
+check("no non-alphanumerics remain (posix)",
+      any(not (c.isalnum() or c == "-") for c in sw.mangle("/a b.c(d)/e")), False)
 
 # Replay against real transcripts: the point is that nothing crashes on shapes I
 # did not anticipate, and that a transcript ending in a completed turn is never
 # reported as open.
+# No transcripts (a fresh machine, CI, a container) is a skip, not a failure: the
+# loop below runs zero times and the fixed cases above still decide the result.
 root = pathlib.Path.home() / ".claude" / "projects"
-files = (sorted(root.glob("*/*.jsonl"), key=lambda q: q.stat().st_mtime)[-40:]
-         if root.is_dir() else [])
+
+
+def _mtime(q: pathlib.Path) -> float:
+    try:
+        return q.stat().st_mtime
+    except OSError:          # a session can delete or rotate its file mid-glob
+        return 0.0
+
+
+files = (sorted(root.glob("*/*.jsonl"), key=_mtime)[-40:] if root.is_dir() else [])
 replayed = closed_ok = 0
 for f in files:
     try:
@@ -192,7 +221,8 @@ for f in files:
             closed_ok += 1
 
 print(f"replayed {replayed} real transcripts "
-      f"({closed_ok} with a completed final turn, all read as closed)")
+      f"({closed_ok} with a completed final turn, all read as closed)"
+      + ("" if files else "  [none found under ~/.claude/projects: replay skipped]"))
 
 
 # --------------------------------------------------------------------------

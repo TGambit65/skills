@@ -51,7 +51,10 @@ Usage
 Exit codes
   0  done (for `wait`: a turn completed)
   1  not found, or timed out
-  2  BLOCKED: idle with an unanswered tool call, i.e. a prompt is waiting
+  2  quiet with the turn still open. Printed as RUNNING when a tool call is
+     unanswered (a slow command, or a prompt the transcript happened to record)
+     and BLOCKED when nothing is recorded (usually a permission prompt). The
+     transcript cannot tell which, so screenshot before acting on either.
 """
 
 from __future__ import annotations
@@ -176,15 +179,15 @@ def turn_in_flight(recs: list[dict]) -> bool:
 
     This is the honest replacement for a wrong assumption. It is tempting to
     detect a waiting permission prompt as "a tool_use with no tool_result", and
-    that is simply not how Claude Code writes its transcript. Verified against
-    v2.1.266 by watching a live prompt: the user record is written, then the
-    prompt appears on screen with NOTHING written, and only when it is approved
-    do the tool_use and its tool_result get appended together.
+    that is not reliable: records are flushed asynchronously and lag the
+    conversation. Watched live against v2.1.266, the same on-screen prompt once
+    left an unanswered tool_use in the transcript and once left NOTHING, with the
+    tool_use and its tool_result appended together only after approval.
 
-    So a waiting permission prompt is invisible here. What this function can say
-    is whether the turn is still open, which combined with a quiet transcript
-    means "either thinking or waiting at a prompt" - and only a screenshot can
-    tell those apart.
+    So a waiting permission prompt is often invisible here. What this function
+    can say is whether the turn is still open, which combined with a quiet
+    transcript means "thinking, a slow command, or waiting at a prompt" - and
+    only a screenshot can tell those apart.
     """
     last_prompt = -1
     for i, d in enumerate(recs):
@@ -202,12 +205,12 @@ def turn_in_flight(recs: list[dict]) -> bool:
 
 
 def pending_tool_calls(recs: list[dict]) -> list[str]:
-    """Tool calls with no matching tool_result: a tool that is RUNNING.
+    """Tool calls with no matching tool_result.
 
-    Not a permission prompt. See turn_in_flight above for why: the tool_use is
-    only written once the call has been approved, so an unanswered one means the
-    command is executing (or the process died mid-call), never that something is
-    waiting to be allowed.
+    Usually a tool that is RUNNING (or a process that died mid-call). Sometimes a
+    permission prompt that the transcript happened to record before approval: see
+    turn_in_flight above for why it is a race. Treat the result as a hint about
+    what is being asked, never as proof of which state the session is in.
     """
     issued: dict[str, str] = {}
     answered: set[str] = set()
@@ -309,11 +312,11 @@ def cmd_wait(a) -> int:
 
         pending = pending_tool_calls(recs)
         if pending:
-            print(f"RUNNING: quiet for {int(idle)}s with a tool still executing: "
+            print(f"RUNNING: quiet for {int(idle)}s with a tool call unanswered: "
                   f"{', '.join(sorted(set(pending)))}")
             print(f"RECORDS: {len(recs)}")
-            print("Long-running command, or the process died mid-call. Screenshot")
-            print("before deciding which.")
+            print("Long-running command, a process that died mid-call, or a permission")
+            print("prompt the transcript recorded early. Screenshot before deciding which.")
             return 2
 
         print(f"BLOCKED: quiet for {int(idle)}s with the turn still open and")

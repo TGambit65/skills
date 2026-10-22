@@ -7,6 +7,19 @@ from the outside it looks like one prompt.
 
     python factory/cost.py record <run-id>          # fold node usage into the run record
     python factory/cost.py report                   # per-run and per-node totals
+    python factory/cost.py daily [<cap-usd>]        # today's total; exit 1 when >= cap
+
+THE AGGREGATE GUARD. `--max-budget-usd` caps ONE agent invocation. Nothing capped the day:
+a dispatcher on a 30-minute cron with a stuck fix loop runs 48 laps, each under its own
+cap, and the first anyone hears of it is the invoice. `daily` folds every run record
+whose id starts with today's UTC date and the orchestrator refuses to dispatch at or
+above FACTORY_MAX_DAILY_USD. The run records ARE the durable counter - one JSON per run,
+written by the EXIT trap in run-workflow.sh, so a run that died mid-lap still counts.
+
+What it cannot see: a lap that is still running has not written its record yet, so the
+real ceiling is FACTORY_MAX_DAILY_USD plus FACTORY_MAX_PARALLEL x FACTORY_MAX_BUDGET_USD.
+And it counts what the agent REPORTED: an agent whose JSON carries no cost figure
+produces a day that reads as unmeasured, which is printed, not silently treated as zero.
 
 Node usage is read from .factory/runs/<run>/nodes/*.json, which each node writes from the
 `--output-format json` envelope its agent returns. No estimation, no modelling: if a
@@ -115,7 +128,62 @@ def cmd_report(_argv: list[str]) -> int:
     return 0
 
 
-COMMANDS = {"record": cmd_record, "report": cmd_report}
+def today_utc() -> str:
+    import datetime
+    # UTC, because run-workflow.sh stamps the run id with `date -u`.
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
+
+
+def daily_total(day: str) -> "tuple[float, int, int]":
+    """(usd, runs counted, runs with no cost figure at all) for run ids dated `day`.
+
+    Run ids are `<YYYYMMDD>T<HHMMSS>-<workflow>`, so the date is in the filename and no
+    clock on the record is trusted. Partial records count what they have: a node that
+    reported a cost is spend whether or not its siblings did. Under-counting is the
+    direction this must not err in.
+    """
+    usd = 0.0
+    counted = unmeasured = 0
+    for path in sorted(glob.glob(os.path.join(RUNS, f"{day}T*.json"))):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                r = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            continue
+        counted += 1
+        costs = [n.get("cost_usd") for n in r.get("nodes", [])]
+        costs = [c for c in costs if isinstance(c, (int, float))]
+        if costs:
+            usd += sum(costs)
+        elif isinstance(r.get("cost_usd"), (int, float)):
+            usd += r["cost_usd"]
+        else:
+            unmeasured += 1
+    return round(usd, 4), counted, unmeasured
+
+
+def cmd_daily(argv: "list[str]") -> int:
+    cap = None
+    if argv:
+        try:
+            cap = float(argv[0])
+        except ValueError:
+            print(f"DAILY_CAP_INVALID {argv[0]!r} is not a number; refusing rather than guessing")
+            return 1
+    day = today_utc()
+    usd, counted, unmeasured = daily_total(day)
+    line = f"DAILY_SPEND day={day} usd={usd:.2f} runs={counted} unmeasured={unmeasured}"
+    if cap is None or cap <= 0:
+        print(line + " cap=off")
+        return 0
+    if usd >= cap:
+        print(line + f" cap={cap:.2f} OVER")
+        return 1
+    print(line + f" cap={cap:.2f} ok")
+    return 0
+
+
+COMMANDS = {"record": cmd_record, "report": cmd_report, "daily": cmd_daily}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:

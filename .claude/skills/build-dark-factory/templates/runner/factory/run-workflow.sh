@@ -224,6 +224,17 @@ materialise() {         # materialise <issue-target>
 # the exact assertions. --disallowedTools is enforced by the agent, not by the prompt.
 HOLDOUT_DENY="Read($FACTORY_HOLDOUT_DIR/**) Glob($FACTORY_HOLDOUT_DIR/**) Grep($FACTORY_HOLDOUT_DIR/**)"
 
+# The same wall, for credentials. The pre-flight stops a secret file being COMMITTED;
+# nothing stopped a node READING one. A node that opens `.env` can paste its contents
+# into a plan, a PR body or a review summary, and two of those are posted to GitHub.
+# Built from FACTORY_SECRET_FILES so the one list in config.sh governs both directions.
+# Read only: a Bash(cat .env) rule is one `head` away from useless and would read as
+# protection. The Bash allowlists per node are the actual leash on shell access.
+SECRET_DENY=""
+for _sf in $FACTORY_SECRET_FILES; do
+  SECRET_DENY="$SECRET_DENY Read($_sf)"
+done
+
 node() {                # node <name> <model> <prompt-file> <allowed-tools>
   local name="$1" model="$2" prompt="$3" tools="$4"
   log "NODE $name (model=$model)"
@@ -263,11 +274,20 @@ node() {                # node <name> <model> <prompt-file> <allowed-tools>
     return 1
   fi
 
-  # shellcheck disable=SC2086 -- HOLDOUT_DENY is a deliberate word list, not one argument.
+  # THESE FLAGS ARE CLAUDE CODE'S, AND THEY MOVE. Checked against the CLI reference on
+  # 2026-10-22: -p, --model, --allowedTools, --disallowedTools, --permission-mode
+  # (acceptEdits auto-approves file edits only; Bash still needs the allowlist),
+  # --add-dir, --max-budget-usd (print mode only; enforcement needs v2.1.217+) and
+  # --output-format json all exist. VERIFY AGAINST THE INSTALLED VERSION before the
+  # first unattended run - references/automation.md has the one-line loop - because a
+  # flag this CLI does not know is not rejected, it falls through into the prompt.
+  # Another agent: rewrite this block to its contract (automation.md, table 1).
+  #
+  # shellcheck disable=SC2086 -- HOLDOUT_DENY and SECRET_DENY are deliberate word lists.
   if ! "$AGENT" -p "$(cat "$rendered")" \
         --model "$model" \
         --allowedTools "$tools" \
-        --disallowedTools $HOLDOUT_DENY \
+        --disallowedTools $HOLDOUT_DENY $SECRET_DENY \
         --permission-mode acceptEdits \
         --add-dir "$ROOT" \
         --max-budget-usd "$MAX_BUDGET" \

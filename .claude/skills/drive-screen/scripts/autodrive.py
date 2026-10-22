@@ -17,17 +17,26 @@ that are not there, and types into a session that has already stopped.
 This one reads the transcript to decide whether the turn is still open, which
 is the part the transcript can actually answer.
 
-What it cannot answer, verified live against v2.1.266: a waiting permission
-prompt writes NOTHING. The user record lands, the prompt appears on screen with
-no transcript activity at all, and only when it is approved do the tool_use and
-its tool_result get appended together. So an unanswered tool_use means a command
-is RUNNING, never that one is waiting to be allowed.
+What it cannot answer: whether a quiet, open turn is a permission prompt, a
+slow command or thinking. Records are flushed asynchronously and lag the
+conversation. Watched live against v2.1.266, the same on-screen prompt once
+left an unanswered tool_use naming the command in the transcript and once left
+nothing at all, with the tool_use appearing only after approval. So an
+unanswered tool_use is a HINT about what is being asked, never proof of the
+session's state, and the refuse list below often cannot see the command it is
+meant to filter.
 
-That leaves the screen as the only place a pending prompt exists. So on a quiet,
-still-open turn this screenshots the window and stops, and a human or a
-vision-capable agent reads the image and approves. --approve-blind will press
-Enter without that step, and is off by default because it approves a command
-nobody has read.
+That leaves the screen as the only reliable place a pending prompt exists. So
+on a quiet, still-open turn this screenshots the window and stops, and a human
+or a vision-capable agent reads the image and approves. --approve-blind will
+press Enter without that step, and is off by default because it approves a
+command nobody has read.
+
+Every decision (stop, refuse, approve, send failure) is appended to
+~/.screenctl/actions.log, the same file screenctl.py writes, so an unattended
+run can be audited afterwards. The log records WHICH tool and WHY, never the
+command text itself, because a command can carry a secret. The screenshot is
+the record of what was on screen.
 
 It also presses Enter rather than typing a digit. Enter accepts the highlighted
 option, which is approve-once. Typing "2" selects the variant that stops asking,
@@ -36,7 +45,11 @@ settings, unattended, which is not a thing to do while nobody is watching.
 
   autodrive.py --title "<window>" --repo <path> [--session <uuid>]
                [--max 25] [--timeout 900] [--idle 45]
-               [--shot-dir <dir>] [--dry-run]
+               [--shot-dir <dir>] [--dry-run] [--approve-blind]
+
+Screenshots of every prompt it stopped on or answered go to --shot-dir, or by
+default to ~/.screenctl/prompts/<run-timestamp>/. Never into the skill folder:
+under a plugin or global install that folder is read-only.
 
 Exit codes
   0  the turn completed
@@ -50,6 +63,7 @@ Exit codes
 from __future__ import annotations
 
 import argparse
+import datetime
 import os
 import re
 import subprocess
@@ -66,6 +80,22 @@ for _s in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
+# Same file screenctl.py appends to, so one log holds the keystrokes and the
+# decisions that caused them, in order.
+LOG = os.path.join(os.path.expanduser("~"), ".screenctl", "actions.log")
+DEFAULT_SHOT_ROOT = os.path.join(os.path.expanduser("~"), ".screenctl", "prompts")
+
+
+def audit(msg: str) -> None:
+    """Append one decision line to the shared action log. Never the command text."""
+    try:
+        os.makedirs(os.path.dirname(LOG), exist_ok=True)
+        stamp = datetime.datetime.now().isoformat(timespec="seconds")
+        with open(LOG, "a", encoding="utf-8") as f:
+            f.write(f"{stamp}\tAUTODRIVE {msg}\n")
+    except Exception:
+        pass  # logging must never be the reason a stop does not happen
+
 
 # Commands this will never approve on its own. The point is not to be a security
 # boundary, because a determined mistake can be spelled around any regex. The
@@ -73,25 +103,47 @@ for _s in (sys.stdout, sys.stderr):
 # well known, and cheap to stop on. Anything matching hands control back with the
 # command printed, and you approve it yourself or you do not.
 REFUSE = [
-    (r"\brm\s+(-\w*\s+)*-\w*[rf]", "recursive or forced delete"),
-    (r"\brmdir\s+/s", "recursive delete"),
-    (r"\bgit\s+push\b.*(--force|-f)\b", "force push"),
+    # Deletes. SKILL.md hard rule 6 names "deleting" as something to confirm, so
+    # a plain `rm file` stops too; the recursive/forced forms get their own line
+    # because the reason printed should say how bad it is.
+    (r"\brm\s+(-\w*\s+)*-\w*[rf]|\brm\b.*--(recursive|force)\b",
+     "recursive or forced delete"),
+    (r"\b(rm|unlink|shred)\b", "deletes files"),
+    (r"\b(rmdir|rd)\s+/s", "recursive delete"),
+    (r"\b(Remove-Item|del|erase)\b.*(-Recurse|/s\b|/q\b)", "recursive delete"),
+    (r"\b(Remove-Item|del|erase)\b", "deletes files"),
+    (r"\bfind\b.*\s-delete\b", "deletes files"),
+    # Git. Pushing is outward-facing (SKILL.md hard rule 6), so every push stops,
+    # not just a forced one; the forced form is listed first for the message.
+    (r"\bgit\s+push\b.*(--force|-f\b|\s\+\w)", "force push"),
+    (r"\bgit\s+push\b", "pushes to a remote (outward-facing: confirm it yourself)"),
     (r"\bgit\s+reset\s+--hard\b", "discards working tree"),
     (r"\bgit\s+clean\b.*-\w*[fdx]", "deletes untracked files"),
-    (r"\bsudo\b", "privilege escalation"),
-    (r"\b(curl|wget|iwr|Invoke-WebRequest)\b[^|]*\|\s*(sudo\s+)?(ba|z|)sh",
+    (r"\bgit\s+(checkout|restore)\s+(--\s+)?\.(\s|$)", "discards working tree"),
+    (r"\bgit\s+branch\s+(-D|--delete\s+--force)\b", "force-deletes a branch"),
+    (r"\bgit\s+stash\s+(drop|clear)\b", "discards stashed work"),
+    # Privilege, network-to-shell, disks, machine.
+    (r"\b(sudo|doas)\b|\bRunAs\b", "privilege escalation"),
+    (r"\b(curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b[^|]*\|\s*(sudo\s+)?"
+     r"((ba|z|)sh|python[23]?|node|iex|Invoke-Expression)\b",
      "pipes the network into a shell"),
+    (r"\b(ba|z|)sh\s+<\(\s*(curl|wget)\b", "pipes the network into a shell"),
     (r"\bdd\s+if=", "raw disk write"),
-    (r"\b(mkfs|diskpart|format)\b", "formats a volume"),
+    # `format` only as the Windows command on a drive letter: a bare \bformat\b
+    # also matched `git log --format=...` and `echo 'format on save'`.
+    (r"\b(mkfs(\.\w+)?|diskpart)\b|\bformat(\.com)?\s+[A-Za-z]:", "formats a volume"),
     (r"\b(shutdown|reboot|Restart-Computer|Stop-Computer)\b", "restarts the machine"),
+    # Publishing and outward-facing GitHub actions.
     (r"\b(npm|pnpm|yarn)\s+publish\b", "publishes a package"),
     (r"\bgh\s+release\s+create\b", "publishes a release"),
-    (r"\bDROP\s+(TABLE|DATABASE|SCHEMA)\b", "destructive SQL"),
+    (r"\bgh\s+(pr\s+merge|repo\s+delete)\b", "outward-facing GitHub action"),
+    # Data.
+    (r"\bDROP\s+(TABLE|DATABASE|SCHEMA|COLUMN)\b", "destructive SQL"),
     (r"\bDELETE\s+FROM\b(?!.*\bWHERE\b)", "unfiltered DELETE"),
     (r"\btruncate\b", "truncates data"),
-    (r"\bkill(all)?\b|\btaskkill\b|\bStop-Process\b", "kills processes"),
-    (r"\bchmod\s+(-R\s+)?777\b", "world-writable permissions"),
-    (r"\b(Remove-Item|del)\b.*-Recurse", "recursive delete"),
+    # Processes and permissions.
+    (r"\b(p?kill(all)?|taskkill|Stop-Process)\b", "kills processes"),
+    (r"\bchmod\s+(-R\s+)?[0-7]*777\b", "world-writable permissions"),
 ]
 
 # These never carry a destructive command, so they are approved without matching.
@@ -149,8 +201,17 @@ def main() -> int:
     base_turns = len(sw.turn_ends(sw.records(path)))
     print(f"Driving {path.name} in {(a.id or a.title)!r} (baseline {base_turns} turns, "
           f"cap {a.max} approvals)")
+    audit(f"START session={path.name} target={(a.id or a.title)!r} "
+          f"blind={a.approve_blind} dry_run={a.dry_run} cap={a.max}")
     if a.dry_run:
         print("DRY RUN: nothing will be sent.")
+
+    # One directory per run. Reusing one directory across runs makes a stale
+    # prompt-01.png look like this run's prompt, and the skill folder itself is
+    # read-only under a plugin install, so the default is under the user's home.
+    shot_dir = a.shot_dir or os.path.join(
+        DEFAULT_SHOT_ROOT, datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    screenctl_path = os.path.join(HERE, "screenctl.py")
 
     approvals = 0
     last_count = len(sw.records(path))
@@ -163,6 +224,7 @@ def main() -> int:
 
         if len(sw.turn_ends(recs)) > base_turns:
             print(f"TURN_COMPLETE after {approvals} approval(s)")
+            audit(f"TURN_COMPLETE approvals={approvals}")
             if texts := sw.assistant_texts(recs):
                 print("\n--- final assistant message ---")
                 print(texts[-1][:2000])
@@ -181,6 +243,7 @@ def main() -> int:
 
         if not sw.turn_in_flight(recs):
             print(f"TURN_COMPLETE (quiet, turn closed) after {approvals} approval(s)")
+            audit(f"TURN_COMPLETE quiet approvals={approvals}")
             if texts := sw.assistant_texts(recs):
                 print("\n--- final assistant message ---")
                 print(texts[-1][:2000])
@@ -203,35 +266,45 @@ def main() -> int:
         hint = sw.pending_tool_details(recs)
         if approvals >= a.max:
             print(f"CAP: {a.max} approvals reached. Stopping deliberately.")
+            audit(f"CAP approvals={approvals}")
             return 2
 
-        shot = None
-        if a.shot_dir or not a.approve_blind:
-            d = a.shot_dir or os.path.join(HERE, "_prompts")
-            os.makedirs(d, exist_ok=True)
-            shot = os.path.join(d, f"prompt-{approvals + 1:02d}.png")
-            # The capture can fail - most often FOCUS_FAILED, which is exactly
-            # the situation where a human is about to be told "read this image".
-            # Naming a path that was never written is bad; naming one left over
-            # from an earlier prompt in the same --shot-dir is worse, because it
-            # looks valid and describes a different question. Say it failed.
-            before = os.path.getmtime(shot) if os.path.exists(shot) else None
-            rs = screenctl("shot", *_target(a), "--out", shot)
-            fresh = os.path.exists(shot) and os.path.getmtime(shot) != before
-            if rs.returncode != 0 or not fresh:
-                print("\nSCREENSHOT FAILED, so there is nothing to read:")
-                print("   ", (rs.stdout + rs.stderr).strip()[:300] or "no new file")
-                print("Refusing to approve something that cannot be seen.")
-                return 2
+        # Always photograph the prompt, blind or not. In blind mode the image is
+        # the only record of what was approved; without it an unattended run
+        # leaves no evidence at all.
+        try:
+            os.makedirs(shot_dir, exist_ok=True)
+        except OSError as e:
+            print(f"\nCANNOT WRITE SCREENSHOTS to {shot_dir}: {e}")
+            print("Pass --shot-dir pointing at a writable directory.")
+            audit(f"STOP shot_dir_unwritable={shot_dir!r}")
+            return 2
+        shot = os.path.join(shot_dir, f"prompt-{approvals + 1:02d}.png")
+        # The capture can fail - most often FOCUS_FAILED, which is exactly
+        # the situation where a human is about to be told "read this image".
+        # Naming a path that was never written is bad; naming one left over
+        # from an earlier prompt in the same --shot-dir is worse, because it
+        # looks valid and describes a different question. Say it failed.
+        before = os.path.getmtime(shot) if os.path.exists(shot) else None
+        rs = screenctl("shot", *_target(a), "--out", shot)
+        fresh = os.path.exists(shot) and os.path.getmtime(shot) != before
+        if rs.returncode != 0 or not fresh:
+            print("\nSCREENSHOT FAILED, so there is nothing to read:")
+            print("   ", (rs.stdout + rs.stderr).strip()[:300] or "no new file")
+            print("Refusing to approve something that cannot be seen.")
+            audit(f"STOP screenshot_failed rc={rs.returncode}")
+            return 2
 
         print(f"\n--- quiet {int(idle)}s, turn still open "
               f"(records {len(recs)}, approvals so far {approvals}) ---")
+        hint_tools = ",".join(t for t, _ in hint) if hint else "none"
         if hint:
             for tool, detail in hint:
                 print(f"    transcript hint: {tool}: {detail[:300]}")
                 if why := refuses(tool, detail):
                     print(f"\nREFUSING: {why}. Answer this one yourself.")
                     print(f"    screenshot: {shot}")
+                    audit(f"REFUSE tool={tool} why={why!r} shot={shot}")
                     return 3
         else:
             print("    transcript says nothing about what is being asked")
@@ -240,13 +313,15 @@ def main() -> int:
             print(f"\nScreenshot: {shot}")
             print("Read it. This is a permission prompt, a slow command, or thinking,")
             print("and only the image separates them. If it is a prompt, approve with:")
-            print(f"  python screenctl.py key {' '.join(_target(a))} --keys enter")
+            print(f"  python {screenctl_path} key {' '.join(_target(a))} --keys enter")
             print("Re-run with --approve-blind only if you accept pressing Enter on")
             print("something nobody has read.")
+            audit(f"STOP_FOR_HUMAN hint={hint_tools} shot={shot}")
             return 3
 
         if a.dry_run:
             print("\nDRY RUN: would press Enter to approve. Stopping here.")
+            audit(f"DRY_RUN would_approve hint={hint_tools} shot={shot}")
             return 3
         print(f"    approving blind (--approve-blind). Screenshot: {shot}")
 
@@ -258,9 +333,11 @@ def main() -> int:
         if r.returncode != 0:
             print("\nSEND FAILED, stopping rather than pretending it landed:")
             print("   ", (r.stdout + r.stderr).strip()[:300])
+            audit(f"STOP send_failed rc={r.returncode} shot={shot}")
             return 2
         approvals += 1
         print("    approved (Enter)")
+        audit(f"APPROVE blind #{approvals} hint={hint_tools} shot={shot}")
 
         # Give the session a moment to act, then require evidence that it did.
         # An approval that changes nothing means the keystroke is not reaching the
@@ -273,6 +350,7 @@ def main() -> int:
         else:
             print("\nNo new transcript records after that approval.")
             print("The keystroke is not reaching the prompt. Stopping for a human.")
+            audit(f"STOP no_progress_after_approval approvals={approvals}")
             return 2
 
         last_count = len(sw.records(sw.latest(a.repo)))
@@ -280,6 +358,7 @@ def main() -> int:
 
     print(f"TIMEOUT after {a.timeout}s with {approvals} approval(s) given.")
     print("The agent may still be working. Screenshot before concluding anything.")
+    audit(f"TIMEOUT approvals={approvals}")
     return 1
 
 

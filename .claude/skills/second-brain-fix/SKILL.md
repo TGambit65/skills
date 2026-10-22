@@ -1,6 +1,6 @@
 ---
 name: second-brain-fix
-description: Work through the findings from a second-brain audit in batches, correcting stale facts and converting locations onto the state/event schema, driven by the markdown file of findings the audit left behind. Use after running second-brain-audit, when someone wants to fix the rest of their notes rather than one page, when they ask how to take the audit forward, when they have a list of contradicted or unsupported claims to work through, or when a notes folder needs converting in bulk rather than one page at a time.
+description: Works through a second-brain audit's findings file in batches, correcting stale facts and converting pages onto the state/event schema. Use after second-brain-audit, when someone wants to fix the rest of their notes rather than one page, asks how to take the audit forward, has contradicted or unsupported claims to work through, or needs a notes folder converted in bulk.
 argument-hint: "[path-to-audit-findings.md]"
 arguments: [audit-results]
 ---
@@ -8,53 +8,19 @@ arguments: [audit-results]
 # Second Brain Fix
 
 The audit found what is wrong and fixed one location so the shape was visible. This works
-through the rest, in batches, from the findings the audit left behind.
-
-## The argument
-
-The findings file this run was invoked with is `$audit-results`, and it is optional:
-
-```
-/second-brain-fix                                   nothing passed
-/second-brain-fix ~/notes                           a folder to look in
-/second-brain-fix ~/notes/second-brain-audit.md     the findings file itself
-```
-
-`$audit-results` is **a path to one markdown file of findings**. `/second-brain-audit` names
-what it writes `second-brain-audit.md`, so that is usually what you will be handed, but the
-name is not the contract. Any markdown file holding the findings works, and whatever the user
-points at is the one to use.
-
-Resolve it before anything else:
-
-| What you were given | Do |
-|---|---|
-| a path to a **file** | that is the findings. The notes folder is its parent, unless the file names a different one |
-| a path to a **folder** | look inside it for the findings, `second-brain-audit.md` first |
-| nothing, so the line above still reads `\$audit-results` | look in the current folder, then one level down |
-| **a path that does not exist** | say so and stop. Do not fall back to searching, or a typo silently works on the wrong folder |
-| **more than one candidate** when searching | list them with their newest `## Log` dates and ask which |
-| **no candidate** when searching | stop. Say to run `/second-brain-audit` first, since there is nothing to work from |
-
-Never invent a queue from scratch when there are no findings. Auditing and fixing in one pass
-is how a bulk write happens against findings nobody read.
-
-**The findings are the input.** `$audit-results` is both the queue and the record: one keyed
-line per location in `## Current State`, one dated line per run in `## Log`. Everything below
-is driven by that file, and a run that does not update it is a run nobody can pick up from.
+through the rest, in batches, from the findings the audit left behind. Every fact is still
+**state** (one current value: replace it) or **event** (a thing that happened: append it),
+and every edit below is one of those two moves.
 
 ## This skill writes in bulk. Settle backups before it does.
 
-Never start writing without settling this, and never resolve it by copying the notes folder
-somewhere else. A duplicate folder of notes is a second answer to every question, which is the
-exact problem this skill exists to remove.
+Nothing is written until this is settled. Resolve the findings path (next section) to learn
+where the notes live, then, in that folder, run `git rev-parse --show-toplevel`.
 
-**First, check what is already there.** Run `git rev-parse --show-toplevel` in the notes folder.
-
-- **Already in git**, either its own repo or tracked by a parent one. Commit or stash anything
-  outstanding, then `git checkout -b second-brain-fix`, and commit after every batch. Say which
-  repo you are in, because a vault nested inside another project is common and the user should
-  know what the branch covers.
+- **Already in git**, either its own repo or tracked by a parent one. Commit or stash
+  anything outstanding, then `git checkout -b second-brain-fix`, and commit after every
+  batch. Say which repo you are in: a vault nested inside another project is common and the
+  user should know what the branch covers.
 - **Not in git.** Ask, in these words or close to them:
 
   > Your notes are not in git, so there is no way to undo a batch. Want me to run `git init`
@@ -69,8 +35,44 @@ exact problem this skill exists to remove.
   > Understood. To be clear, this rewrites many files at once and there will be no way to undo
   > it. Go ahead anyway?
 
-  On a clear yes, proceed and do not raise it again. On silence or anything ambiguous, stop. An
-  unanswered question is not permission.
+  On a clear yes, proceed and do not raise it again. On silence or anything ambiguous, stop.
+  An unanswered question is not permission.
+
+Never resolve this by copying the notes folder somewhere else. A duplicate folder of notes is
+a second answer to every question, which is the exact problem this skill exists to remove.
+
+**Then check the write path.** If `CLAUDE.md` (or `AGENTS.md`, or the system prompt) does not
+yet carry the state/event rule from the audit's phase 7, add it before the first batch and say
+why: fixing four hundred lines under a write path that can only append buys about a month.
+
+## The argument
+
+The findings file this run was invoked with is `$audit-results`, and it is optional:
+
+```
+/second-brain-fix                                   nothing passed
+/second-brain-fix ~/notes                           a folder to look in
+/second-brain-fix ~/notes/second-brain-audit.md     the findings file itself
+```
+
+`$audit-results` is **a path to one markdown file of findings**. `/second-brain-audit` names
+what it writes `second-brain-audit.md`, so that is usually what you will be handed, but the
+name is not the contract: whatever the user points at is the one to use. Resolve it before
+anything else:
+
+| What you were given | Do |
+|---|---|
+| a path to a **file** | that is the findings. The notes folder is its parent, unless the file names a different one |
+| a path to a **folder** | look inside it for the findings, `second-brain-audit.md` first |
+| nothing, so the line above still reads `\$audit-results` | look in the current folder, then one level down |
+| **a path that does not exist** | say so and stop. Do not fall back to searching, or a typo silently works on the wrong folder |
+| **more than one candidate** when searching | list them with their newest `## Log` dates and ask which |
+| **no candidate** when searching | stop. Say to run `/second-brain-audit` first, since there is nothing to work from |
+
+Never invent a queue from scratch when there are no findings: auditing and fixing in one pass
+is how a bulk write happens against findings nobody read. `$audit-results` is both the queue
+and the record: one keyed line per location in `## Current State`, one dated line per run in
+`## Log`. A run that does not update it is a run nobody can pick up from.
 
 ## The three piles are three different jobs
 
@@ -80,9 +82,9 @@ exact problem this skill exists to remove.
 | **Unsupported** | the claim, and nothing backing it up | never guess. One batch of questions for the user |
 | **Locations not yet converted** | a page that has no `## Current State` / `## Log` | convert in batch, verbatim |
 
-The middle row is where bulk fixing goes wrong. An unsupported claim has no answer in the
-notes by definition, so an agent told to "correct these" will invent a value or quietly delete
-the line. Both are worse than the stale claim.
+The middle row is where bulk fixing goes wrong: an unsupported claim has no answer in the notes
+by definition, so an agent told to "correct these" invents a value or quietly deletes the
+line. Both are worse than the stale claim.
 
 ## How much to take on
 
@@ -94,8 +96,8 @@ Ask how large the notes are, or count the markdown files, and scale the ambition
 | **~50 to 500** | the always-loaded surface first, then one folder per batch, committing between |
 | **500+** | the always-loaded surface, plus only the pages with a trail (several entries about one subject over time). Everything else stays as it is, permanently |
 
-Bigger notes do not mean convert more. They mean convert a smaller fraction and lean harder on
-the write path, because at that size nobody is ever going to hand-tend the archive.
+Bigger notes mean converting a smaller fraction and leaning harder on the write path; at that
+size nobody is ever going to hand-tend the archive.
 
 ## Step 1: build the batch list
 
@@ -116,11 +118,8 @@ For each finding, the newer evidence is already named. So:
 
 - Replace the stale line in `## Current State`.
 - Move the superseded line, **verbatim**, to `## Log`.
-- Date the new line with the date of the evidence, not today.
-
-That last one matters more than it looks. A date on a current value is a claim that somebody
-checked the value on that day. Stamping today's date on a line you corrected from a note
-written in June makes a June fact look verified this morning.
+- Date the new line with the date of the evidence, not today: stamping today's date on a line
+  corrected from a June note makes a June fact look verified this morning (rule 5).
 
 Work the whole batch, then show one summary: how many lines replaced, in which files, and the
 three or four that were least obvious. Do not show a diff per line, and do not ask per line.
@@ -148,8 +147,8 @@ files. Daily notes get one new file of current values and the journal untouched.
 not markdown do not get converted at all.
 
 **This is sorting, not rewriting.** Every existing line lands in one of the two sections,
-verbatim, at most with a date prepended. Improving the prose is how information disappears
-without anyone noticing, and in a batch nobody is reading closely enough to catch it.
+verbatim, at most with a date prepended. Improving the prose is how information disappears,
+and in a batch nobody is reading closely enough to catch it.
 
 **When a bullet has no date and none can be recovered**, do not invent one and do not quietly
 leave the entry bare. Take the date from the evidence if the bullet cites any, otherwise write
@@ -168,7 +167,6 @@ Two kinds of page to leave alone, and say so rather than converting them:
 ## Step 4: the unsupported pile, one pass of questions
 
 Collect them all and ask once, as a numbered list. Not one at a time, and never silently.
-
 For each, three outcomes:
 
 - **Still true** goes into `## Current State` with the date the user gives, and say plainly that
@@ -182,11 +180,10 @@ not permission.
 
 ### Anything you leave for the owner gets annotated where it lives
 
-A question in your summary reaches one person once. The line stays in the notes and gets read by
-every future session, so **the warning has to be on the line, not only in your report.**
-
-Whenever you leave a line standing because only the owner can resolve it, append the reason to
-that line in place, keeping the original text intact ahead of it:
+A question in your summary reaches one person once; the line gets read by every future session,
+so **the warning has to be on the line, not only in your report.** Whenever you leave a line
+standing because only the owner can resolve it, append the reason in place, keeping the
+original text intact ahead of it:
 
 ```markdown
 - **Sam Iwu**: accepted a full-time offer, starting October 2026. UNVERIFIED (fix run
@@ -198,14 +195,11 @@ that line in place, keeping the original text intact ahead of it:
   Ask before quoting either number.
 ```
 
-This matters most for a **stale line that is newer than the line you just corrected.** If one key
-says $12,000 dated the 10th and another says $6,500 dated the 12th, an agent reading that page
-takes the newer one and answers $6,500, so correcting the first key changed nothing unless the
-second one carries the warning. Check for that case explicitly after every batch: for each key
-you fixed, look for another key on the same page about the same subject with a later date.
-
-Never delete the line to resolve the conflict, and never pick a value yourself. Annotating is the
-whole move.
+This matters most for a **stale line that is newer than the line you just corrected**: an agent
+reading that page takes the newer one, so the correction changed nothing unless the newer line
+carries the warning. Check for that case explicitly after every batch: for each key you fixed,
+look for another key on the same page about the same subject with a later date. Never delete
+the line to resolve the conflict, and never pick a value yourself. Annotating is the whole move.
 
 ## Step 5: write the results back
 
@@ -230,9 +224,9 @@ If the count did not move much, say so and say why rather than presenting the co
 result. Restructuring cannot reach a fact nobody ever wrote down, and when the count stays flat
 that is usually what happened. The fix then is the write path, not another batch.
 
-Flag one thing if the findings file has been renamed: `audit.py` skips files whose name starts
-with `second-brain-audit`, so a renamed one gets read as evidence on the next scan, and it
-quotes stale claims verbatim. Either keep that name or keep the file outside the notes folder.
+If the findings file has been renamed, flag it: `audit.py` skips files whose name starts with
+`second-brain-audit`, so a renamed one gets read as evidence on the next scan, and it quotes
+stale claims verbatim. Keep that name, or keep the file outside the notes folder.
 
 ## Rules that never bend
 
@@ -240,19 +234,12 @@ quotes stale claims verbatim. Either keep that name or keep the file outside the
    where it is and report it.
 2. **Never merge two subjects that look alike.** "Acme (May)" and "Acme Corp renewal" may be two
    real things. A duplicate entry is a cheap mistake; a wrong merge destroys information. Report
-   near-misses at the end of the batch and let the user decide. Batch work merges by default
-   because merging looks like tidying, so this rule needs holding on purpose.
-3. **Never invent a value**, and never delete a claim to make a pile smaller.
-   Anything you leave for the owner carries its reason on the line itself, not only in your
-   summary. A warning that lives in a chat window is the failure this skill exists to fix.
+   near-misses at the end of the batch and let the user decide. Merging looks like tidying, so
+   this rule needs holding on purpose.
+3. **Never invent a value**, and never delete a claim to make a pile smaller. Anything left for
+   the owner carries its reason on the line itself.
 4. **Never edit or delete a `## Log` entry.** Old and superseded is the point of that section.
 5. **A date is a claim that the value was checked.** A line you only moved keeps its own date.
 6. **Never copy the notes folder as a backup.** Git, or an informed no. Nothing else.
 7. **Stop when the always-loaded surface has nothing contradicted.** An archive full of old
    pages is history, not rot. There is no version of this where every page gets converted.
-
-## If the write path has not changed yet
-
-Check whether `CLAUDE.md` (or `AGENTS.md`, or the system prompt) carries the state/event rule
-from the audit's phase 7. If it does not, add it before starting, and say why: fixing four
-hundred lines under a write path that can only append buys about a month.

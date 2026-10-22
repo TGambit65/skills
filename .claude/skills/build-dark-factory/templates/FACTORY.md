@@ -70,7 +70,7 @@ on a schedule and record the date here.
 ## Operating notes
 
 - **Cost.** <what one completed run actually costs, measured not projected>.
-  Instrumented on <date>.
+  Instrumented on <date>. Caps: <8> USD per agent call, <50> USD per day.
 - **Model routing.** Planning slot: <model>. Implementation slot: <model>.
 - **What reaches a human.** Only `factory:needs-human`. <how it is delivered>
 - **Known gotchas for this repo.** <e.g. the deploy polls rather than using a push

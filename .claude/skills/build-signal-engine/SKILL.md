@@ -1,16 +1,17 @@
 ---
 name: build-signal-engine
-description: Build a personal signal engine from scratch - a system that reads every source someone cares about each day (changelogs and release notes, communities, feeds, videos, papers), makes a quick decision on every item, lets an LLM read only what survives, and delivers one short digest. Interviews the user first to pin down what they need to keep up with, the sources where it actually shows up, and the one question that decides what is worth their time, then builds it one stage at a time into their own repo, proving each stage on real data. Agnostic about the coding agent, the decision model and where the data comes from. Use when the user wants to keep up with AI or their field without doomscrolling, build an AI news digest, a daily briefing, a content engine, a research or competitor monitor, a changelog watcher, or "something that reads everything and tells me what matters"; and when they mention signal vs noise, an information diet, or falling behind.
+description: Builds a signal engine: reads every source someone cares about daily (changelogs, communities, feeds, videos, papers), decides on every item, hands an LLM only what survives, and delivers one digest. Interviews the user, then builds it into their repo stage by stage, proven on real data. Use for keeping up with AI or a field without doomscrolling, an AI news digest, daily briefing, content engine, research or competitor monitor, changelog watcher, or "something that reads everything and tells me what matters"; also on signal vs noise, information diet, or falling behind.
 argument-hint: "[optional: path/to/repo]"
 arguments: [repo]
 ---
 
 # Build a signal engine
 
-**What the user typed:** $ARGUMENTS
+The repo this run was invoked with is `$repo`, and it is optional.
 
-> If a path was given, it is the repo to build in; confirm it in one sentence. If not, ask
-> whether to start a new folder or use the current one. Then go straight to Round 1.
+> If a path was given, it is the repo to build in; confirm it in one sentence. If nothing was
+> passed, so the line above still reads `\$repo` or is empty, ask whether to start a new folder
+> or use the current one. Then go straight to Round 1.
 
 A signal engine reads everything so its owner doesn't have to. Every morning it pulls
 from the places things actually happen, decides on every single item, hands an LLM only
@@ -71,12 +72,32 @@ Two splits carry the whole design. Say each once, early, in one sentence:
 | 6 | Delivery + schedule | it ran once on its own |
 | 7 | A week in shadow | the user's marked-up misses, and the question revised |
 
+The order is the cost model. Nothing bills per item until the store has deduped it
+(Stage 1), nothing is scored until the code filters have dropped what a number can drop
+(Stage 3), and the LLM reads nothing until the decision pass has routed it (Stage 4). Do not
+wire a later stage to read from an earlier one than the diagram shows.
+
 **One source first, end to end, before adding the rest.** A pipeline built source-wide but
 never run end to end fails at the join between stages, and finding that after twelve
 sources is twelve times the work.
 
 **Anything that bills per row is capped on every run** and only runs on the daily schedule,
 never on a frequent scan.
+
+---
+
+## Secrets and the database: rules for every stage
+
+- **Keys live in the repo's gitignored env file and the engine loads them from there.**
+  Never read or output that file with any tool or command (`cat`, `sed`, `grep`,
+  `Get-Content`, `Read`, `open()`), not even "masked": a masking regex that is slightly
+  wrong prints every key. To check a key, load the file inside a program with the stack's
+  env loader (python-dotenv for Python) and print only the key's name and whether it is set.
+  If one is missing, ask the user to add it themselves rather than pasting it into the chat.
+- **Before the first commit, confirm the env file and the database are in `.gitignore`**
+  and that `git status` lists neither. Never write a key into code, `PROFILE.md`, a log, a
+  digest or a commit message. A key in a commit is a key to rotate.
+- **Test every run against a throwaway database,** never the one that will go live.
 
 ---
 
@@ -88,12 +109,13 @@ Read `references/interview.md` and work through it. Three rounds:
    with and what they would do differently if they knew on the day; something they missed
    or found out late, and where it first appeared; where the digest gets read and what they
    do with an item.
-2. **Questions only they can answer, about things that already happened**: the tools they
-   use daily, where people using those tools talk, three items from last week they would
-   have wanted and three they never want again, what is too old or too small to matter, and
-   whether their sources come through one data platform or get picked per source.
+2. **Six questions only they can answer, about things that already happened**: the tools
+   they use daily, where people using those tools talk, three items from last week they
+   would have wanted and three they never want again, what is too old or too small to
+   matter, which is worse (missing something big or wasting their time), and whether their
+   sources come through one data platform or get picked per source.
 3. **One message of defaults** to confirm: schedule, stack, storage, caps, models,
-   digest length, delivery.
+   digest length, delivery, shadow week.
 
 **Every question goes through the question tool** (`AskUserQuestion` in Claude Code, or
 the equivalent), with two to four options drafted from what they have already said, one
@@ -195,13 +217,6 @@ or a sharper question. Then it runs on its own.
 
 ## Operating facts
 
-- Keys live in the repo's gitignored env file and the engine loads them from there. Never
-  read or output that file with any tool or command (cat, sed, grep, Get-Content, Read,
-  `open()`), not even "masked": a masking regex that is slightly wrong prints every key. To
-  check a key, load the file with python-dotenv inside a program and print only the key's
-  name and whether it is set. If one is missing, ask the user to add it themselves rather
-  than pasting it into the chat.
-- Test every run against a throwaway database, never the one that will go live.
 - On Windows, force UTF-8 output from the start (`PYTHONIOENCODING=utf-8` or reconfigure
   stdout). Titles from communities carry emoji and non-English text that crash the console.
 - Measure the decision pass by running the same rows with and without it: rows the LLM
@@ -210,6 +225,8 @@ or a sharper question. Then it runs on its own.
   the decision pass is wrong.
 - Per-row data costs can exceed the whole LLM bill. The decision pass saves on reading,
   not on fetching.
+- Provider names, model ids, endpoints, limits and prices in `references/` were true when
+  written. Verify each against the provider's current docs before building on it.
 
 ## Resources
 

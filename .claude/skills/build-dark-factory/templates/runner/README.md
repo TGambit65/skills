@@ -21,7 +21,7 @@ them, in production, unattended. Do not tidy them away.
 
 ```
 factory/
-  config.sh          THE FILE YOU EDIT. Every project-specific value.
+  config.sh          THE FILE YOU EDIT. Every project-specific value, incl. both spend caps
   orchestrator.sh    the dispatcher: fixed priority, autonomy dial, stop button
   run-workflow.sh    the runner. THIS is the orchestrator; there is no second definition
   gate.sh            the structural gate: positive markers, counts, calibration
@@ -31,7 +31,7 @@ factory/
   state.py           the transition table. Refuses illegal transitions
   gh_backend.py      GitHub issues + labels as state, with read-back verification
   tripwire.py        fails loudly if a builder artifact reached the validator
-  cost.py            token instrumentation, on from run one
+  cost.py            token instrumentation, on from run one; `daily` is the aggregate cap
   node_failure.py    why a node failed: budget, denial, crash and refusal are different
   prompts/*.md       the seven nodes. THE INTERVIEW'S OUTPUT - rewrite these
   install-trigger.sh arms cron / systemd / Task Scheduler. Refuses below dial 1
@@ -40,6 +40,15 @@ issues/0001-example.md   the INPUT. The front matter is the state machine
 .gitignore         REQUIRED - the pre-flight refuses to start without it
 .gitattributes     REQUIRED on Windows - pins LF so *.sh survive a Linux box
 ```
+
+## What it runs on
+
+**bash.** Every script is `#!/usr/bin/env bash` and uses `set -euo pipefail`, `trap ERR`,
+`set -C` and `local` - bash 3.2 or later, so the macOS system bash is enough. On Windows
+that means **Git Bash** (installed with Git for Windows); none of this runs under
+PowerShell or cmd, and `install-trigger.sh` bridges Task Scheduler to bash with a
+generated `factory/tick.cmd`. **`python`**, bare, is called from every script; `config.sh`
+defines it as `python3` when only that exists.
 
 ## Install it
 
