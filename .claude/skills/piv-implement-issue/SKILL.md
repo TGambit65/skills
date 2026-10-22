@@ -2,7 +2,7 @@
 name: piv-implement-issue
 description: Implements a GitHub issue fix from its piv-investigate-issue RCA: drift check, fix branch, regression test, validation, PASS/FAIL report. Use after the RCA exists to "fix issue N" or "implement the fix".
 argument-hint: [github-issue-id]
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(git branch --show-current:*), Bash(git symbolic-ref:*), Bash(git worktree list:*), Bash(git checkout -b:*), Bash(git switch -c:*), Bash(gh issue view:*)
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(git branch --show-current:*), Bash(git symbolic-ref:*), Bash(git worktree list:*), Bash(git checkout -b:*), Bash(git switch -c:*), Bash(gh issue view:*), Bash(ruff:*), Bash(mypy:*), Bash(pytest:*), Bash(npm:*), Bash(bun:*), Bash(uv run:*)
 ---
 
 # Implement Issue Fix: GitHub Issue #$ARGUMENTS
@@ -14,9 +14,9 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git status:*), Bash(git diff:
 - RCA document exists at `docs/issues/issue-$ARGUMENTS.md`
 - GitHub CLI installed and authenticated (optional, for context and status updates)
 
-`allowed-tools` pre-approves only read-only git, branch creation, and `gh issue view`. Your project's lint, type-check
-and test commands differ per project, so they are not pre-approved — expect a prompt the first time each runs, or add
-them to your project's permission settings. Anything with external side effects (`gh issue comment`/`edit`, pushes) prompts.
+`allowed-tools` pre-approves read-only git, branch creation, `gh issue view`, and the common Python/JS runners
+(ruff, mypy, pytest, npm, bun, uv). Other stacks' lint/type/test commands prompt the first time each runs — add them
+to your project's permission settings before running this skill unattended. Anything with external side effects (`gh issue comment`/`edit`, pushes) prompts.
 
 ## RCA Document to Reference
 
@@ -55,8 +55,11 @@ Check `git status -sb`, `git branch --show-current`, `git worktree list`, then:
 
 - **In a worktree?** Use it (it was created for this work).
 - **On the base branch, clean tree?** Create a fix branch — `git checkout -b fix/issue-$ARGUMENTS-<slug>`. Detect the
-  base with `git symbolic-ref refs/remotes/origin/HEAD` (never hardcode `main`); if that ref is unset, ask which branch
-  is the base rather than guessing.
+  base branch — never hardcode `main`: `git symbolic-ref refs/remotes/origin/HEAD` (strip `refs/remotes/origin/`);
+  if unset, the `HEAD branch` line of `git remote show origin`; if neither answers, ask (interactive) or use `main`
+  and say so (non-interactive).
+- **On the base branch, and the only uncommitted change is the RCA under `docs/issues/`?** Create the fix branch
+  the same way; the RCA rides along and is committed with the fix.
 - **Already on a feature/fix branch?** Use it (warn if its name doesn't reference #$ARGUMENTS).
 - **Dirty tree on the base branch?** Stop — ask the user to commit or stash first. Never stash, reset, or check out
   over their changes yourself.
@@ -116,8 +119,9 @@ has none, use the project's own (`package.json` scripts, `pyproject.toml`, `Make
 - **Never make a check pass by weakening it:** no deleting, skipping, `xfail`-ing or commenting out tests, no loosened
   assertions, no lint/type ignore pragmas, no lowered thresholds — unless the RCA itself says the test is wrong, and
   then record it under Deviations.
-- **Retry cap:** after **3** fix-and-rerun cycles on the same failure, stop. Record the failure and its output in
-  Validation Results, set Status to BLOCKED, and hand back to the user.
+- **Retry cap: 3 fix-and-rerun attempts per failing check.** Fix the code, never the check. After the third
+  failure stop working on it, record the failing command and its last real output under Validation Results, set
+  `Status: PARTIAL`, and hand back — never move on as if it passed.
 - Don't proceed while anything is failing.
 
 ### 6. Verify Fix
@@ -137,6 +141,9 @@ If needed:
 - Add notes about the fix
 
 ## Output Report
+
+Write this report to `.claude/reports/issue-$ARGUMENTS-report.md` (and print it). `piv-create-pr` and
+`piv-review-pr` read it for the PR body and the Deviations signal.
 
 Every status below is **PASS / FAIL / NOT RUN**. PASS and FAIL need the command and its trimmed actual output beneath;
 NOT RUN needs a reason. Never write a status you did not observe.
@@ -168,7 +175,7 @@ NOT RUN needs a reason. Never write a status you did not observe.
    - Test cases: [List test functions added]
 
 **Test Coverage:**
-- Fix verification test: [name] — [PASS/FAIL/NOT RUN] — failed before the fix: [yes / not checked]
+- Fix verification test: [name] — [PASS/FAIL/NOT RUN] — failed before the fix: [yes / Unverified]
 - Edge case tests: [names] — [PASS/FAIL/NOT RUN]
 - Regression prevention tests: [names] — [PASS/FAIL/NOT RUN]
 
@@ -209,8 +216,8 @@ $ [exact command]
 
 ### Status
 
-**[READY FOR COMMIT / BLOCKED]** — READY only if every status above is PASS (NOT RUN only with a stated reason).
-READY → hand off to the `piv-commit` skill. BLOCKED → state what fails and what the user must decide.
+**Status: COMPLETE | PARTIAL** — COMPLETE only if every status above is PASS (NOT RUN only with a stated reason).
+COMPLETE → ready for the `piv-commit` skill. PARTIAL → state what fails and what the user must decide.
 
 **Suggested commit message:**
 ```
@@ -241,5 +248,5 @@ gh issue edit $ARGUMENTS --add-label "fixed" --remove-label "bug"
 - If you discover the RCA analysis was incorrect, document findings and update the RCA
 - If additional issues are found during implementation, note them for separate GitHub issues and RCAs
 - Follow project coding standards exactly
-- Ensure all validation passes before declaring READY — a FAIL or an unexplained NOT RUN means BLOCKED
+- Ensure all validation passes before declaring READY — a FAIL or an unexplained NOT RUN means PARTIAL
 - The commit message `Fixes #$ARGUMENTS` will link the commit to the GitHub issue

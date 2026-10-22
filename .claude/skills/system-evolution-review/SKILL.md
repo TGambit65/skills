@@ -28,7 +28,7 @@ Perform a meta-level analysis of how well the implementation followed the plan a
 
 ## Context & Inputs
 
-Two artifacts are required, two are optional.
+Two artifacts are required; two more are read whenever they are available.
 
 **Generated Plan (required):** what the agent was SUPPOSED to do. Plan file: $plan
 
@@ -38,11 +38,11 @@ If no report path was passed (nothing follows the colon above), look in this ord
 - `.claude/reports/<slug>-report.md` (written by `piv-implement`)
 If neither exists, stop and ask for it - do not reconstruct the report from the diff.
 
-**Plan skill and Execute skill (optional):** the instructions that produced the plan and drove the
-implementation. Read the `piv-plan-implementation` and `piv-implement` skills *if they are installed*, wherever
-they live (project `.claude/skills/`, `~/.claude/skills/`, or a plugin install - never assume a fixed path). Use
-them to tell whether a problem came from the instructions or from the run. If they are not available, say so in
-the report and judge from the plan and report alone.
+**Plan skill and Execute skill (read them whenever installed):** the instructions that produced the plan and
+drove the implementation. Read the `piv-plan-implementation` and `piv-implement` skills wherever they live (project
+`.claude/skills/`, `~/.claude/skills/`, or a plugin install - never assume a fixed path); the "Update the plan
+skill / execute skill" actions below are judged against them. If they are not available, say so in the report and
+judge from the plan and report alone.
 
 ## Analysis Workflow
 

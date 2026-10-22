@@ -17,7 +17,8 @@ rules file against what just changed and proposes the **smallest** edit that kee
 ## Input
 - `$ARGUMENTS` — optional diff range. Default: uncommitted + staged (`git diff HEAD`). If that is empty, use
   `<base>...HEAD`, where `<base>` is the detected default branch: `git symbolic-ref refs/remotes/origin/HEAD`
-  (strip `refs/remotes/origin/`), else the `HEAD branch` line of `git remote show origin`. Don't hardcode `main`.
+  (strip `refs/remotes/origin/`); if unset, the `HEAD branch` line of `git remote show origin`; if neither answers,
+  use `main` and say so.
 - **Scope: the project's rules file(s)** — `CLAUDE.md` and/or `AGENTS.md`, the root file + any package-level
   ones. (If `CLAUDE.md` is just a `@AGENTS.md` import, check `AGENTS.md`.) Ignore README, `docs/`, and `.claude/`
   agent/command/skill files. This skill exists to keep the *rules* honest, nothing else.

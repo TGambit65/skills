@@ -7,24 +7,14 @@ description: Writes and tests ast-grep rules for structural code search - matchi
 
 ## Overview
 
-This skill translates natural language queries into ast-grep rules for structural code search. ast-grep matches
-code by the structure of its syntax tree rather than its text, so it can express queries that text search cannot.
 Rule syntax is in `references/rule_reference.md`; load it when you need more than `pattern` / `kind` / `has` /
 `inside`. Confirm `ast-grep --version` is installed before promising results.
-
-## When to Use This Skill
-
-Use this skill when users:
-- Need to search for code patterns using structural matching (e.g., "find all async functions that don't have error handling")
-- Want to locate specific language constructs (e.g., "find all function calls with specific parameters")
-- Request searches that require understanding code structure rather than just text
-- Need to perform complex code queries that traditional text search cannot handle
 
 ## General Workflow
 
 ### Step 1: Understand the Query
 
-Clearly understand what the user wants to find. Ask clarifying questions if needed:
+Ask clarifying questions if needed:
 - What specific code pattern or structure are they looking for?
 - Which programming language?
 - Are there specific edge cases or variations to consider?
@@ -112,8 +102,6 @@ names), `ast` (named nodes only), `pattern` (how ast-grep interprets your patter
 metavariables), `sexp` (S-expression).
 
 ```bash
-# See the structure of your target code
-ast-grep run --pattern 'class User { constructor() {} }' --lang javascript --debug-query=cst
 # See how ast-grep interprets your pattern
 ast-grep run --pattern 'class $NAME { $$$BODY }' --lang javascript --debug-query=pattern
 ```
@@ -138,4 +126,4 @@ rule: {pattern: "console.log($ARG)"}' .
 `references/rule_reference.md` - every rule key (`pattern`, `kind`, `regex`, `nthChild`, `range`, `inside`,
 `has`, `precedes`, `follows`, `all`, `any`, `not`, `matches`), the top-level YAML keys (`utils`, `constraints`,
 `transform`, `fix`), metavariable syntax, and worked examples (functions with await, code inside a context,
-missing try/catch, alternatives). Load it when the query needs more than the basics above.
+missing try/catch, alternatives).

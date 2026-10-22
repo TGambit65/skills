@@ -86,12 +86,12 @@ Same table `piv-review-pr` uses, so findings carry the same meaning in both revi
 
 | Severity | Meaning |
 |----------|---------|
-| **Critical** | Blocking — exploitable security flaw, data loss, crashes |
+| **Critical** | Blocking — security flaw (exploitable or unverified), data loss, crashes |
 | **High** | Should fix before merge — type-safety holes, missing error handling, logic errors |
 | **Medium** | Pattern inconsistencies, missing edge cases, hardening gaps, *undocumented* deviations from the plan |
 | **Low** | Suggestions, minor polish |
 
-Security findings take the severity of their impact: exploitable → Critical; a hardening gap → Medium/Low.
+Security findings: exploitable **or unverified** → Critical (when in doubt, Critical); only a *verified* hardening gap with no exploit path → Medium/Low, and say why.
 
 ## Output Format
 
@@ -119,8 +119,7 @@ verification: [how you confirmed it — test run / traced / reproduced — or Un
 ```
 
 **Verdict:** `PASS` (no Critical/High), `FAIL` (any Critical/High), and `NOT RUN` for any check you did not
-perform (e.g. the type-checker wasn't available). If no issues found: "Code review passed. No technical issues
-detected."
+perform (e.g. the type-checker wasn't available). If no issues found: "Verdict: PASS. No technical issues detected."
 
 ## Important
 
@@ -128,3 +127,4 @@ detected."
 - Focus on real bugs and documented-standard violations, not personal style
 - Suggest fixes, don't just complain
 - Don't fix anything here — hand the report to `piv-fix-review-findings`
+- Advisory extra: run `rules-check-drift` alongside this review when CLAUDE.md may have drifted.

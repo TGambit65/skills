@@ -16,7 +16,7 @@ Don't hardcode `main`. Resolve it:
 2. Else: `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'`
 3. Fallback: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name` (works without `sed`/`awk`,
    e.g. on Windows outside Git Bash), or `git remote show origin 2>/dev/null | grep 'HEAD branch' | awk '{print $NF}'`
-4. Last resort: `main`. Store as `{base}`.
+4. Last resort: `main` — say so. Store as `{base}`.
 
 ## Phase 1 — Validate git state
 
@@ -42,7 +42,7 @@ git log origin/{base}..HEAD --oneline
   specifics live; this skill stays general.
 - Commits: `git log origin/{base}..HEAD --pretty=format:"- %s"`
 - Files: `git diff --stat origin/{base}..HEAD`
-- **Implementation report** (if `piv-implement` wrote one — `.claude/reports/<slug>-report.md`): pull the summary,
+- **Implementation report** (if `piv-implement` wrote one — `.claude/reports/<slug>-report.md` (feature branches) or `.claude/reports/issue-<N>-report.md` (fix branches; the `issue-<N>-report.md`): pull the summary,
   its **Validation results**, and the **Deviations from the plan** (these belong in the PR body — they tell the
   reviewer what was intentional). No report → say so in the body; don't invent validation results.
 - Linked ticket / issue: look for `ACC-…`, `#123`, `Fixes #…` in the commits/branch name.

@@ -11,20 +11,17 @@ Confluence / Jira / Linear / GitHub URL or key), fetch it from the source first,
 tracker (e.g. the Atlassian MCP for Jira/Confluence).
 
 **Reference docs (optional):** if any paths were passed alongside the intent — API docs, product/engineering
-docs, ADRs, prior research, a competitor teardown, a wiki page — **read them first.** They ground the exploration
-so you propose options that fit what already exists. If none were passed, **ask whether any exist** before you
-start — a lot of the context you need is usually already written down.
+docs, ADRs, prior research, a competitor teardown, a wiki page — **read them first.** If none were passed, **ask
+whether any exist** before you start.
 
 ## What this skill is
 
-The intent says **what** to build and **why**. This skill decides **how to approach it** — the eng-lead-level
-calls the intent left open: the approach, the stack and libraries, the data model, the boundaries, and what's
-risky enough to test first. **It is a high-level decision doc, not an implementation plan.** You're choosing the
-*approach* and the *shape* from a few different angles; the per-ticket, task-by-task plan comes later with
+This skill decides **how to approach** the intent: the eng-lead-level calls it left open. **It is a high-level
+decision doc, not an implementation plan.** The per-ticket, task-by-task plan comes later with
 `piv-plan-implementation`. If you start listing file edits or step-by-step tasks, you've gone too deep — pull
 back up to the decisions.
 
-## This is an interactive skill — never run it headless
+## Interactive only — not for non-interactive runs
 
 The conversation **is** the deliverable. Don't one-shot a document. Run this loop, out loud, with the user:
 
@@ -32,9 +29,8 @@ The conversation **is** the deliverable. Don't one-shot a document. Run this loo
 investigate → surface 2–3 options with trade-offs → recommend + reasoning → ask → wait for their call → go deeper
 ```
 
-Ask sharp clarifying questions whenever the intent or the user's goals are unclear — a *grill-me* posture beats a
-confident wrong guess. Never converge on a single answer silently. **Don't invoke this skill from an unattended
-chain** (a full-loop runner, a factory, a scheduled job); if nobody is there to weigh the options, stop and say so
+Ask sharp clarifying questions whenever the intent or the user's goals are unclear. Never converge on a single
+answer silently. If the caller says the run is unattended (`piv-run-full-loop`, a factory, a scheduled job), stop and say so rather than deciding alone
 rather than deciding alone.
 
 ## Your role
@@ -54,16 +50,15 @@ A pragmatic **CTO / staff-engineer advisor**. You **propose, you don't dictate.*
 brand-new build, or building on an existing codebase?"). It changes how you explore:
 
 - **Greenfield**: explore the *solution space* — approaches, the web for current best practices and stack
-  options, first principles. The architecture is what you *decide*.
+  options, first principles.
 - **Brownfield**: explore *how this lands in the existing system* — where it plugs in, what it reuses, what it
   must not break. **Exploring the codebase is your first move** — read the relevant surfaces yourself; a prior
-  `prime-codebase` is optional. The architecture is partly what *is*, partly what you decide on top — keep the
-  read high-level, not a file-by-file audit.
+  `prime-codebase` is optional. Keep the read high-level, not a file-by-file audit.
 
 ## What to explore (interactively)
 
-Work through these *with* the user — surface options, recommend with reasoning, ask, let them decide. They map
-one-to-one onto the sections of the output doc:
+Work through these *with* the user, running the loop above. They map one-to-one onto the sections of the output
+doc:
 
 - **Approaches** — 2–3 genuinely different ways to solve it, from different angles, with trade-offs.
 - **Key decisions** — the calls an engineering lead owns *before* implementation:
@@ -74,7 +69,7 @@ one-to-one onto the sections of the output doc:
     boundaries the new work crosses — flag these, don't gloss them.
   - **Other** — key patterns, a major build-vs-buy, a significant trade-off. The shape, not the task list.
 - **First principles** — what fundamentally has to be true for this to work.
-- **Missing pieces** — what doesn't exist yet that the chosen approach needs (often the real work).
+- **Missing pieces** — what doesn't exist yet that the chosen approach needs.
 - **Spikes & experiments** — anything uncertain or expensive-to-reverse → recommend a small spike to learn
   *before* committing, rather than guessing:
 
@@ -86,16 +81,14 @@ one-to-one onto the sections of the output doc:
 
   Reversible, low-cost calls → just decide and move on.
 
-Recommend a direction for each, with the reasoning, and let the user make the call. Skip what doesn't apply — and
-say so, don't silently omit it.
+Skip what doesn't apply — and say so, don't silently omit it.
 
 ## The output: a high-level architecture decision doc
 
 Only after the calls are made — and **ask the user where it should live before you write anything.** If the
 intent lives in a **tracker** (a Confluence/Jira epic, a Linear project, a GitHub issue), the strong default is a
-**separate page linked to the epic, both ways**: the epic stays pure intent, the architecture lives in its own
-decision page beside it. Two clean, linked sources are what let `piv-slice-epic` and `piv-plan-implementation`
-read intent and architecture separately later. The options:
+**separate page linked to the epic, both ways**, so `piv-slice-epic` and `piv-plan-implementation` can read
+intent and architecture separately later. The options:
 
 - **A separate linked page in your tracker** (recommended when the epic lives there): create it as a child of
   the epic and link both ways, with the tracker's tool (e.g. the Atlassian MCP for Confluence/Jira). Confirm the

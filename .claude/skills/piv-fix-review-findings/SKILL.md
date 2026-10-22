@@ -21,7 +21,8 @@ file, **read the entire file first** so you understand every finding before tria
 
 ## 1. Triage first (the human's call)
 
-Sort the findings before touching code. Honor any direction in the scope argument; if it's unclear, surface the
+Sort the findings before touching code. Severities are the shared table in `piv-review-changes` / `piv-review-pr`:
+Critical/High are "fix now" unless you say why not; Medium/Low are your call. Honor any direction in the scope argument; if it's unclear, surface the
 findings grouped and **ask** rather than fixing everything by default:
 
 - **Fix now (this PR)** — real, in-scope, belongs with this change.
@@ -44,15 +45,16 @@ For each:
 
 ## 3. Validate
 
-Run the `piv-validate` skill to finalize the fixes. Report its verdict as given (PASS / FAIL, or NOT RUN if it
-could not run); don't proceed to commit on a FAIL.
+Run the `piv-validate` skill to finalize the fixes and report its per-check results (PASS / FAIL / NOT RUN) and
+overall verdict as given. On FAIL, apply `piv-implement`'s step-4 fix rules — fix the code, never the check;
+**retry cap: 3 fix-and-rerun attempts per failing check** — then re-run `piv-validate`. Still FAIL → list it as a
+blocking item in the report and do not commit.
 
 ## 4. If operating on a PR — commit and push
 
 Check with `gh pr view --json number,url 2>/dev/null` (an open PR exists for the current branch). If these fixes
 are on a PR branch, **commit them (use `piv-commit`) and push** so the PR reflects the fixes and `piv-review-pr`
-can re-run on the updated PR. The review file itself is a local artifact — `piv-commit` will ask before staging
-anything under `.claude/code-reviews/`; the default answer is no. If nothing was fixed (everything deferred),
+can re-run on the updated PR. The review file itself is a local artifact — `piv-commit` treats `.claude/code-reviews/` as ask-first, default no. If nothing was fixed (everything deferred),
 there's nothing to push — just make sure the deferred items are logged as issues.
 
 ## Output

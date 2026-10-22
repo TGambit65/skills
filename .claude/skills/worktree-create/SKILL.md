@@ -63,7 +63,7 @@ Set up a git worktree for branch: BRANCH   (assigned port: PORT, only relevant i
 4. Run the generate/build step the app needs to boot, if any:  BUILD_COMMAND
 5. Verify:  HEALTH_CHECK   (if it starts a service, use PORT; stop any server you started afterwards).
 
-Report exactly: worktree path · branch · deps installed (yes/no) · health check (PASS/FAIL) · any errors
+Report exactly: worktree path · branch · deps installed (yes/no) · health check (PASS / FAIL / NOT RUN — with the reason) · any errors
 (error messages only, never file contents).
 ```
 

@@ -13,21 +13,10 @@ The repo this run was invoked with is `$repo`, and it is optional.
 > passed, so the line above still reads `\$repo` or is empty, ask whether to start a new folder
 > or use the current one. Then go straight to Round 1.
 
-A signal engine reads everything so its owner doesn't have to. Every morning it pulls
-from the places things actually happen, decides on every single item, hands an LLM only
-the few worth reading, and delivers one digest.
-
-**Keeping up is a filtering problem, not a reading problem.** Reading more makes people
-feel more behind. The engine encodes the user's own filter and runs it on everything.
-
 **Build it into the user's repo. Do not hand them a plan.** Every stage below ends with
 code committed and output from a real run they can look at.
 
----
-
 ## Output discipline
-
-The interview and the build are long. What you say is not.
 
 | Moment | Budget |
 |---|---|
@@ -39,8 +28,6 @@ The interview and the build are long. What you say is not.
 Never announce a plan before doing it, restate an answer as a paragraph, or explain why the
 skill works this way unless asked. The reasoning lives in `references/`, for you.
 
----
-
 ## The shape
 
 ```
@@ -48,16 +35,14 @@ sources -> store (dedupe, stable ids) -> code filters (dates, numbers) -> decide
         -> the LLM reads what survives -> digest -> delivered on a schedule
 ```
 
-Two splits carry the whole design. Say each once, early, in one sentence:
+Say each of these two splits once, early, in one sentence:
 
 - **Numbers in code, judgment in the decision pass, reading in the LLM.** Dates, upvotes,
   view counts and "have I seen this" are code. "Is this new, is it for me" is a typed
-  decision. Summarising and connecting is the LLM. Mixing them up is the most common bug.
+  decision. Summarising and connecting is the LLM.
 - **The question is the policy.** What the engine keeps is decided by the words of one or
   two questions written from the user's own examples. Changing the question changes the
-  engine. There is no model setting that fixes a vague question.
-
----
+  engine.
 
 ## Construction order
 
@@ -72,34 +57,24 @@ Two splits carry the whole design. Say each once, early, in one sentence:
 | 6 | Delivery + schedule | it ran once on its own |
 | 7 | A week in shadow | the user's marked-up misses, and the question revised |
 
-The order is the cost model. Nothing bills per item until the store has deduped it
-(Stage 1), nothing is scored until the code filters have dropped what a number can drop
-(Stage 3), and the LLM reads nothing until the decision pass has routed it (Stage 4). Do not
-wire a later stage to read from an earlier one than the diagram shows.
+Do not wire a later stage to read from an earlier one than the diagram shows.
 
-**One source first, end to end, before adding the rest.** A pipeline built source-wide but
-never run end to end fails at the join between stages, and finding that after twelve
-sources is twelve times the work.
+**One source first, end to end, before adding the rest.**
 
 **Anything that bills per row is capped on every run** and only runs on the daily schedule,
 never on a frequent scan.
-
----
 
 ## Secrets and the database: rules for every stage
 
 - **Keys live in the repo's gitignored env file and the engine loads them from there.**
   Never read or output that file with any tool or command (`cat`, `sed`, `grep`,
-  `Get-Content`, `Read`, `open()`), not even "masked": a masking regex that is slightly
-  wrong prints every key. To check a key, load the file inside a program with the stack's
+  `Get-Content`, `Read`, `open()`), not even "masked". To check a key, load the file inside a program with the stack's
   env loader (python-dotenv for Python) and print only the key's name and whether it is set.
   If one is missing, ask the user to add it themselves rather than pasting it into the chat.
 - **Before the first commit, confirm the env file and the database are in `.gitignore`**
   and that `git status` lists neither. Never write a key into code, `PROFILE.md`, a log, a
-  digest or a commit message. A key in a commit is a key to rotate.
+  digest or a commit message.
 - **Test every run against a throwaway database,** never the one that will go live.
-
----
 
 ## Stage 0. Interview
 
@@ -119,8 +94,7 @@ Read `references/interview.md` and work through it. Three rounds:
 
 **Every question goes through the question tool** (`AskUserQuestion` in Claude Code, or
 the equivalent), with two to four options drafted from what they have already said, one
-marked `(Recommended)` and first. It always carries free text, so nothing is lost. Never
-ask the user to design an artifact; they tell you what happened, you turn it into sources,
+marked `(Recommended)` and first. Never ask the user to design an artifact; they tell you what happened, you turn it into sources,
 filters and questions.
 
 Write `PROFILE.md` from `templates/PROFILE.md`: the focus, the sources, the filters, the
@@ -136,12 +110,9 @@ back as a proposal and get a yes before Stage 1.
 - **A source whose terms forbid automated access** and that has no API or permitted
   provider: leave it out and say why.
 
----
-
 ## Stages 1-3. Sources, store, code filters
 
-Read `references/sources.md`. It is a playbook per source type: what to use for each,
-what it returns, and the failure each one is known for.
+Read `references/sources.md`.
 
 **Where the data comes from is the user's call (R2.6).** If they chose one data platform,
 that is the plan: every source it covers goes through it, with one client, one credential
@@ -151,7 +122,7 @@ asked you to pick, choose per source from `references/sources.md` and say which 
 
 **If the platform has an MCP server, connect it for the build.** Search for and test-run
 the right tool for each source through MCP, then have the engine call those same tools on
-its schedule through the platform's API. MCP while you build, the API while it runs.
+its schedule through the platform's API.
 
 Changelogs and release notes, however they are fetched: split the page into dated entries
 and give each a stable id.
@@ -161,10 +132,7 @@ body, published_at, engagement. Dedupe on the id before anything costs money. St
 SQLite unless they already run something else.
 
 Code filters run on stored items and drop by fact: age, engagement floor, language, length,
-already seen. Report how many each one dropped. Pull smarter before filtering harder: a
-filter does not refund a row the provider already billed.
-
----
+already seen. Report how many each one dropped. Pull smarter before filtering harder.
 
 ## Stage 4. The decision pass
 
@@ -180,14 +148,12 @@ Code routes each item:
 - **unsure**: goes to the reading pass, where the LLM decides
 
 **Never drop on taste.** "Is this a toy project", "would I like this" and "is it good" are
-for ranking and for the LLM, never for a hard drop. They cut real finds.
+for ranking and for the LLM, never for a hard drop.
 
 **Prove it on their examples before trusting it.** Score the keep/drop examples from the
 interview, plus a sample of today's real items you label with them. Print what was kept,
 what was dropped, and every miss. Tune the words of the question, not the thresholds,
 first.
-
----
 
 ## Stage 5. The reading pass and the digest
 
@@ -195,7 +161,7 @@ Read `references/digest.md`. The LLM reads only what the decision pass let throu
 related items, and writes the digest in the format from `PROFILE.md` with every link kept.
 Start from `templates/digest_prompt.md`.
 
-Cap the digest (default ten items). A digest nobody finishes is a feed.
+Cap the digest (default ten items).
 
 ## Stage 6. Delivery and schedule
 
@@ -203,9 +169,8 @@ Deliver where they already read (a markdown file in their notes, email, chat). S
 full run once a day. If they want a weekly roll-up, it reads the week's stored items, not
 seven digests.
 
-Ask before registering the schedule (cron, Task Scheduler, launchd). Once it is registered,
-every paid source bills every day without anyone watching. Show the one command, and run the
-engine once by hand if they would rather register it themselves.
+Ask before registering the schedule (cron, Task Scheduler, launchd). Show the one command,
+and run the engine once by hand if they would rather register it themselves.
 
 ## Stage 7. A week in shadow
 
@@ -213,12 +178,10 @@ For a week the user reads the digest and marks two things: what was missing and 
 noise. Fix misses by adding a source or rewording a question; fix noise with a code filter
 or a sharper question. Then it runs on its own.
 
----
-
 ## Operating facts
 
 - On Windows, force UTF-8 output from the start (`PYTHONIOENCODING=utf-8` or reconfigure
-  stdout). Titles from communities carry emoji and non-English text that crash the console.
+  stdout); community titles carry emoji and non-English text.
 - Measure the decision pass by running the same rows with and without it: rows the LLM
   read, tokens, wall time, and which rows it would have kept that the pass dropped.
 - LLMs vary between runs too. A row that passed once and not the next time is not proof

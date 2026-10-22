@@ -51,6 +51,10 @@ story list, or engineering tasks. Build the backlog from the sections it does ha
 its missing pieces and components, and add a ticket per spike it flagged. Without one the backlog is **flat** —
 don't invent phases.
 
+**If the PRD itself has Implementation Phases or User Stories sections** (PRDs not written by `plan-create-prd`
+often do), use them directly: each phase is a ticket group, each user story maps to one or more tickets (split
+if it hides more than ~a day of work). The architecture doc only adds grouping where the PRD has none.
+
 For every ticket, draft:
 - **Title** — imperative, specific (`Add token refresh endpoint`, not `Auth`).
 - **Description** — what and why, linked back to the PRD section it serves.
@@ -61,6 +65,9 @@ Keep tickets small. A ticket that can't be described in one screen is two ticket
 decompose, stop and flag it — that's a PRD gap, not a ticket-writing problem.
 
 ### 2. Confirm before creating anything
+
+**Interactive only — not for non-interactive runs.** This step is gated on a human go-ahead; if the caller says the
+run is unattended (`piv-run-full-loop`, a factory, a scheduled job), stop and say so rather than creating tickets alone.
 
 Print the proposed ticket list (titles, grouping, acceptance criteria), the non-goals you are excluding, and the
 target platform/project/epic. Wait for a yes. **Never create tickets without this confirmation** — creating real

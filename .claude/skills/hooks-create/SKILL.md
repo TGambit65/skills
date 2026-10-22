@@ -12,16 +12,6 @@ If that is filled in, treat it as the behavior spec and start from it. Don't re-
 only ask to pin down the gaps (the exact paths / commands / patterns, and whether it must *block*). If it is
 blank, start by asking what the hook should guarantee or do (Workflow step 1).
 
-## What a hook is (30-second intro)
-
-A **hook** is deterministic code that fires automatically on a Claude Code **lifecycle event** - before a tool
-runs, after it runs, when the agent tries to finish, when a session starts, and so on. Unlike a skill or a
-subagent, **the agent does not choose to invoke a hook** - it fires whether the model "remembers" or not. A rule
-*asks* the agent to behave; a hook **guarantees** it, at the tooling layer the model can't talk its way around.
-
-The user brings the **idea** ("the agent should never read my `.env`"); this skill writes the **code** - a small
-script configured in `.claude/settings.json` - and wires it in. They don't need to know Python.
-
 ## The one thing to get right: which event, and can it block?
 
 The behavior the user wants maps to **one** lifecycle event. Pick by *when* it should fire and *whether it must
@@ -37,13 +27,7 @@ stop something*:
 | **Get notified when the agent needs you / finishes** | **Notification** (or **Stop**) | No - side-effect only (desktop/Slack/sound) |
 | **Snapshot state before context compaction** | **PreCompact** | No |
 
-> **Pre = guarantee/gate. Post = react/log.** "Make sure X never happens" / "don't finish until Y" is a *blocking*
-> hook; "do Z when W happens" is an *observe/react* hook.
-
 ## The execution protocol (how a hook talks to Claude Code)
-
-The event list and this contract **evolve** - treat the table above and the bullets below as a snapshot and
-confirm them against the current docs in step 2.
 
 - **Input:** Claude Code passes a JSON object on **stdin** - always includes `session_id`, `cwd`,
   `hook_event_name`; event-specific fields like `tool_name` + `tool_input` (tool events), `prompt`
@@ -64,11 +48,11 @@ confirm them against the current docs in step 2.
 ## Workflow
 
 ### 1. Understand the idea (ask only to fill gaps)
-The user may not be technical. Pin down two things in plain language:
+Pin down two things in plain language:
 - **What** should happen or be prevented, and **when** (before/after an action, at finish, at session start)?
 - **How precisely** should it match? ("any `.env` file", "the `migrations/` folder", "`rm -rf`", "my test
-  command exits non-zero"). Get the concrete file paths / commands / patterns - the guarantee is only as good as
-  what it matches, so don't guess. If the ask is vague, propose a concrete interpretation and confirm.
+  command exits non-zero"). Get the concrete file paths / commands / patterns; don't guess. If the ask is vague,
+  propose a concrete interpretation and confirm.
 
 ### 2. Read the current docs
 `WebFetch` these (current at time of writing - verify they still resolve) and confirm the target event's name,
@@ -81,31 +65,29 @@ double-check.
 
 ### 3. Pick the event (and matcher)
 Use the table to choose the single event. Choose a **matcher** that scopes it tightly - for tool events, the
-tool name(s) (e.g. `"Bash"`, `"Edit|Write"`, `"mcp__.*"`); empty/`"*"` means every occurrence. Don't fire on
-everything if the goal is specific.
+tool name(s) (e.g. `"Bash"`, `"Edit|Write"`, `"mcp__.*"`); empty/`"*"` means every occurrence.
 
 ### 4. Write the hook script
 - Default to a **`uv` single-file Python script** at `.claude/hooks/<event>_<purpose>.py` (e.g.
   `pre_tool_use_secrets.py`, `stop_tests_must_pass.py`) - a `uv run --script` shebang plus inline `# /// script`
-  metadata, so it needs no install and no project venv of its own. Use another language only if the user asks.
+  metadata. Use another language only if the user asks.
 - Read the JSON from stdin, do the check, and:
   - to **block**: print a clear reason to `stderr` and `sys.exit(2)`;
   - to **allow**: `sys.exit(0)` (optionally print context to stdout for the injecting events).
-- **Fail open by default.** Wrap the body so any unexpected error exits `0` - a broken hook must never brick the
-  user's session, and a crashed `Stop` hook that exits 2 traps them in a block loop. The only intentional
-  non-zero exit is the deliberate `exit 2` block.
+- **Fail open by default.** Wrap the body so any unexpected error exits `0`. The only intentional non-zero exit
+  is the deliberate `exit 2` block.
 - **Exception - guards must fail closed.** For a `PreToolUse` guard whose entire purpose is to stop something
-  (secrets, protected paths, destructive commands), a crash that exits 0 *silently allows the very thing the hook
-  exists to prevent*, and nothing on screen says so. For those: catch the exception, print it to stderr, and
+  (secrets, protected paths, destructive commands): catch the exception, print it to stderr, and
   `sys.exit(2)`; and set `"onFailure": "block"` on the handler in `settings.json` so a hook that cannot start or
   times out also blocks (newer Claude Code versions only - confirm the field in the fetched docs). Tell the user
-  which way their hook fails and why. Never fail closed on `Stop` / `SubagentStop` (Claude Code ignores
-  `onFailure` there anyway).
-- Keep it lean and readable - the user will want to tweak the matched paths/commands later.
+  which way their hook fails and why. A fail-closed guard that crashes is a bricked session: every matching tool
+  call is blocked until the script is fixed — so keep its matcher as narrow as the guarantee allows, and tell the
+  user the recovery is to edit or temporarily remove the hook entry in `.claude/settings.json`. Never fail closed
+  on `Stop` / `SubagentStop` (Claude Code ignores `onFailure` there anyway).
+- Keep it lean and readable.
 - If a hook already exists for that event, **extend it** rather than overwrite (add your check; keep theirs).
 - **`Stop` / `SubagentStop` only:** check `stop_hook_active` first and `sys.exit(0)` when it is true. Without
-  that guard the hook blocks the stop, the agent works, tries to stop again, is blocked again - a loop (Claude
-  Code caps it at eight consecutive blocks, but that is eight wasted turns).
+  that guard the hook blocks the stop, the agent works, tries to stop again, is blocked again - a loop.
 
 > ### ⚠️ Running a project command from a hook (read this before writing one)
 >
@@ -161,8 +143,7 @@ everything if the goal is specific.
 
 ### 5. Wire it into settings.json
 Edit `.claude/settings.json` (create it if absent). **Merge** into any existing `hooks` block - never clobber
-other events or other hooks on the same event. Use `${CLAUDE_PROJECT_DIR}` so the path does not depend on the
-current working directory. Shape:
+other events or other hooks on the same event. Use `${CLAUDE_PROJECT_DIR}` in the path. Shape:
 ```json
 {
   "hooks": {
@@ -179,8 +160,7 @@ current working directory. Shape:
 ### 6. Prove it yourself, then explain and warn
 
 **Run the hook before you hand it over, in both directions.** Feed it a sample event on stdin and check the exit
-code - do not ship a hook you have only read. A hook that always blocks, or never blocks, looks identical to a
-working one until it fires at the wrong moment.
+code - do not ship a hook you have only read.
 
 ```bash
 # should ALLOW (exit 0)
@@ -221,7 +201,6 @@ Before you report done, confirm each of these is actually true - not just read:
 
 - Hooks are the deterministic floor of the AI Layer - use them for the non-negotiables (secrets, protected paths,
   "don't finish until green"), not for things a rule or skill handles well enough.
-- A blocking hook's *coverage* is only as good as its matcher - it guarantees the hook **runs**, but you decide
-  what it catches. Be honest with the user about the edges (e.g. a `.env` matcher won't catch a base64'd read,
+- A blocking hook's *coverage* is only as good as its matcher. Be honest with the user about the edges (e.g. a `.env` matcher won't catch a base64'd read,
   and `@file` mentions in the prompt attach the file without any tool call, so no PreToolUse hook fires).
 - Keep hooks fast - they run on the matched event every time. Heavy work belongs in an async hook or a skill.

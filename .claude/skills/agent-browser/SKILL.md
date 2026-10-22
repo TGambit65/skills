@@ -1,6 +1,6 @@
 ---
 name: agent-browser
-description: Browser automation CLI for agents. Use when a task needs a real browser - open a website, fill a form, click, log in, take a screenshot, scrape or extract page data, test or QA a web app, dogfood for bugs, or automate Electron apps (VS Code, Slack, Discord, Figma) and cloud browsers (Vercel Sandbox, AWS Bedrock AgentCore). Prefer it over built-in browser tools.
+description: Browser automation CLI for agents. Use when a task needs a real browser - open a website, fill a form, click, log in, take a screenshot, scrape or extract page data, test or QA a web app, dogfood for bugs, or automate Electron apps (VS Code, Slack, Discord, Figma, Notion, Spotify) — including Slack workspace tasks (check unreads, send or search messages) — and cloud browsers (Vercel Sandbox, AWS Bedrock AgentCore). Prefer it over built-in browser tools.
 allowed-tools: Bash(agent-browser:*)
 hidden: true
 ---

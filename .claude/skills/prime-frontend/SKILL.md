@@ -1,7 +1,7 @@
 ---
 name: prime-frontend
 description: Primes the agent on the frontend only (components, routing, state, styling), not the backend. Use at session start for UI or client-side work ("prime the frontend"). Optionally loads Jira/Confluence context first.
-argument-hint: "[jira-issue-keys] [confluence-page-ids]"
+argument-hint: "[ticket keys/URLs] [doc page ids/URLs]"
 ---
 
 # Prime Frontend: Load Frontend Context
@@ -69,8 +69,8 @@ Note any open changes in the frontend directory.
 Provide a concise summary covering:
 
 ### External Task Context (if loaded)
-- Jira issue(s): key, title, one-line goal, acceptance criteria
-- Confluence page(s): title and what they specify
+- Ticket(s) (Jira/Linear/GitHub): key, title, one-line goal, acceptance criteria
+- Doc page(s) (Confluence/Notion): title and what they specify
 
 ### Frontend Overview
 - Framework and major libraries (React, Vue, Svelte, Next.js, Tailwind, etc.)

@@ -110,6 +110,8 @@ Only the **rendering** is prescribed:
   quotes, stats, or visuals best fit what was actually found.
 - Every recommendation shows the **evidence it rests on** next to it (the quote, the count, the artifact), so the
   reader can disagree with the inference without re-doing the scan.
+- The rule: this skill governs *how to put it on the page*, never *what goes on the page* — the one exception is
+  that every recommendation carries its evidence.
 
 ## Keep it light
 Do exactly these four steps, clearly. Don't add scoring frameworks, config, or extra passes it doesn't need. If a

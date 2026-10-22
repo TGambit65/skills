@@ -36,9 +36,10 @@ search stays out of your main context:
 - **Researcher** — find WHERE the relevant code lives + patterns to mirror: the error
   strings from the issue, related functions/modules, similar implementations, existing test patterns.
 
-Use the project's `codebase-analyst` / `research-agent` subagents if `.claude/agents/` defines them; this repo does
-not ship them, so otherwise dispatch two built-in general-purpose subagents with the briefs above. With no subagents
-at all, run both briefs yourself, in sequence, with the same `file:line` discipline.
+These skills ship no subagents. If the project defines `.claude/agents/codebase-analyst.md` /
+`research-agent.md`, dispatch them with the briefs above; otherwise dispatch two built-in general-purpose subagents
+with the same briefs; with no subagent mechanism at all, run both briefs yourself, in sequence, with the same
+`file:line` discipline.
 
 Merge their findings into a short map (`file:line` + why each matters) before forming the root cause. *(This is
 the parallel-subagent fan-out, applied to diagnosis.)*
@@ -96,7 +97,8 @@ handling, integration mismatches.
 
 ## Output: Create RCA Document
 
-Save analysis as: `docs/issues/issue-$ARGUMENTS.md` (create the directory if needed).
+Save analysis as: `docs/issues/issue-$ARGUMENTS.md` (create the directory if needed). Leave it uncommitted:
+`piv-implement-issue` carries it onto the fix branch and `piv-commit` commits it with the fix.
 
 ### Required RCA Document Structure
 
@@ -118,7 +120,7 @@ Each value needs a one-line reason grounded in the investigation (not a guess):
 
 | Metric | Value | Reasoning |
 |--------|-------|-----------|
-| Severity | Critical/High/Medium/Low | user impact · workaround · scope of failure |
+| Severity | Critical/High/Medium/Low | Critical = security exposure, data loss or crash · High = core flow broken, no workaround · Medium = degraded, workaround exists · Low = cosmetic / minor |
 | Complexity | Low/Medium/High | files touched · integration points · risk |
 | Confidence | High/Medium/Low | evidence quality · unknowns · assumptions · reproduced? |
 

@@ -37,9 +37,9 @@ not fill a result from memory: a check you did not run in this session is `NOT R
 - Plan file: [path to plan that guided this implementation]
 - Files added: [list with paths]
 - Files modified: [list with paths]
-- Lines changed: +X -Y (from `git diff --stat` against the base branch)
+- Lines changed: +X -Y (from `git diff --stat` against the base branch — detect it: `git symbolic-ref refs/remotes/origin/HEAD`, else `git remote show origin`, else `main`)
 
-### Validation Results
+### Validation results
 
 One of `PASS | FAIL | NOT RUN` per line, with the command used. Never record a pass you did not observe.
 

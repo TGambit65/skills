@@ -16,7 +16,7 @@ argument-hint: "[ticket key/URL (fetched from your tracker), or a free-form feat
   plan** (Jira via the Atlassian MCP, GitHub via `gh issue view`, etc.). Read its summary, acceptance criteria,
   and per-ticket context. Then **follow its links up to the epic and the epic's linked architecture page**
   (Confluence via the Atlassian MCP) and inherit those decisions (see "Inherit, don't re-decide"). Never plan
-  from the bare key; the ticket body plus its epic and architecture are the real input.
+  from the bare key.
 - **A local ticket** from `piv-slice-epic` — a `TICKET-n` in `docs/tickets/<epic-slug>.md`: read that ticket's
   section, the epic summary at the top of the file, and its `Depends on:` line. Treat it like a tracker ticket.
 - **A free-form description**: plan directly from it (greenfield or ad-hoc), asking clarifying questions as
@@ -24,9 +24,9 @@ argument-hint: "[ticket key/URL (fetched from your tracker), or a free-form feat
 
 ## Mission
 
-Produce a **context-rich implementation plan** — we do NOT write code in this phase. Context is King: the plan
-must contain ALL information needed for implementation (patterns, mandatory reading, documentation, validation
-commands) so the execution agent succeeds on the first attempt.
+Produce a **context-rich implementation plan** — we do NOT write code in this phase. The plan must contain ALL
+information needed for implementation (patterns, mandatory reading, documentation, validation commands) so the
+execution agent succeeds on the first attempt.
 
 **Inherit, don't re-decide**: This is a **per-ticket** plan. If the ticket belongs to an epic that already has
 architecture decisions — a **linked architecture page** (e.g. a Confluence page from the `plan-architecture`
@@ -97,9 +97,8 @@ Use subagents and parallel analysis where they help (Phases 2 and 3 especially).
 
 **Clarify Ambiguities — GATE:**
 
-Codebase analysis is done, so the open questions are now *specific*. This is the one moment where you know
-enough to ask well and have not yet written anything. **GATE** means: post the questions, then stop. End the
-turn and wait for the answers. Do not ask and answer in the same breath, and do not roll into Phase 3.
+**GATE** means: post the questions, then stop. End the turn and wait for the answers. Do not ask and answer in
+the same breath, and do not roll into Phase 3.
 
 Ask in **one cluster**, numbered, 3-6 questions max, each carrying a **recommended default** so answering is
 cheap ("I'll mirror the first unless you say otherwise"). Draw them only from what the analysis actually left
@@ -122,10 +121,7 @@ same as clearance.
 **If they decline** ("just write it"), **or the run is non-interactive**: honour it, but name what you are
 guessing. Post the cluster anyway so it is on the record, take each recommended default, and turn every
 unanswered item into an `Assumed — <the assumption>, confirm before execution` line in
-`OPEN QUESTIONS / ASSUMPTIONS`; the task it affects carries a `**GOTCHA**` naming it. Never guess silently.
-
-**Already settled upstream:** anything the ticket, its epic, or the linked architecture page already answers is
-not open. Inherit it and skip (see "Inherit, don't re-decide").
+`OPEN QUESTIONS / ASSUMPTIONS`; the task it affects carries a `**GOTCHA**` naming it.
 
 ### Phase 3: External Research & Documentation
 
@@ -139,7 +135,6 @@ not open. Inherit it and skip (see "Inherit, don't re-decide").
 
 **Technology Trends:**
 
-- Research current best practices for the technology stack
 - Find relevant blog posts, guides, or case studies
 - Identify performance optimization patterns
 - Document security considerations
@@ -339,7 +334,7 @@ IMPORTANT: Execute every task in order, top to bottom. Each task is atomic and i
 - [ ] Manual testing confirms feature works
 - [ ] Acceptance criteria all met; no regressions in existing functionality
 - [ ] Code follows project conventions; reviewed for quality and maintainability
-- [ ] Unit test coverage meets the project's requirement (<threshold>)
+- [ ] Unit test coverage meets the project's requirement (<threshold>; 80%+ if the project states none)
 - [ ] Documentation updated · performance requirements met · security considerations addressed (each if applicable)
 
 ---
@@ -351,9 +346,8 @@ if answered differently — would change the plan.>
 
 ## NOTES (open canvas)
 
-<Your *reasoning*, unconstrained — the sections above template the plan's *shape* so other agents can consume
-it. Alternatives weighed and rejected and why, tradeoff matrix, sequencing or rollout risk, data-flow sketch,
-open threads, links. Prose, lists, tables, code blocks all welcome.>
+<Your *reasoning*, unconstrained: alternatives weighed and rejected and why, tradeoff matrix, sequencing or
+rollout risk, data-flow sketch, open threads, links.>
 
 ## AMENDMENTS
 
@@ -363,12 +357,12 @@ creation.>
 - <ISO date> — <what changed and why, e.g. "scope cut: deferred bulk-import to a follow-up ticket after AC review">
 ```
 
-**Template guidance** (how to fill the sections that need more than their placeholder):
+**Template guidance**:
 
 - **Out of Scope / Non-Goals** — bound the work explicitly. Name the things a reasonable reader might assume are
-  in scope but aren't; this is what stops the agent from gold-plating or solving the wrong problem.
+  in scope but aren't.
 - **Related Work** — the plan's place in the larger graph, distinct from CONTEXT REFERENCES (files/docs to read
-  for *this* implementation). If the ticket inherits an epic's engineering plan, record it under **Epic**.
+  for *this* implementation).
 - **IMPLEMENTATION PLAN phases** run **top to bottom by default** — each assumes the one above it is done.
   Where that is NOT the true dependency, add a `**Depends on:**` line under the phase header, and an
   `**Independent of:**` line where two phases don't block each other. Independent phases are candidates to run
@@ -377,23 +371,19 @@ creation.>
 - **STEP-BY-STEP TASKS** use information-dense action keywords: **CREATE** (new files or components),
   **UPDATE** (modify existing files), **ADD** (insert new functionality into existing code), **REMOVE** (delete
   deprecated code), **REFACTOR** (restructure without changing behavior), **MIRROR** (copy a pattern from
-  elsewhere in the codebase). Every task carries a VALIDATE command and a SATISFIES criterion, so every task
-  traces to an acceptance criterion.
-- **OPEN QUESTIONS / ASSUMPTIONS** — surface anything still uncertain instead of silently guessing. Flag
-  unresolved critical questions for the user before execution; in non-interactive mode this list is what the
-  caller surfaces for confirmation.
+  elsewhere in the codebase). Every task carries a VALIDATE command and a SATISFIES criterion.
+- **OPEN QUESTIONS / ASSUMPTIONS** — flag unresolved critical questions for the user before execution; in
+  non-interactive mode this list is what the caller surfaces for confirmation.
 
 ## Output Format
 
 **Filename**: `.claude/plans/{kebab-case-descriptive-name}.md` — a short, descriptive feature name, e.g.
-`add-user-authentication.md`, `implement-search-api.md`, `refactor-database-layer.md`. Create `.claude/plans/`
-if it doesn't exist. The basename is the plan slug `piv-implement` uses for its branch and report.
+`add-user-authentication.md`. Create `.claude/plans/` if it doesn't exist. The basename is the plan slug `piv-implement` uses for its branch and report.
 
 ## Quality Criteria
 
 The goal is **one-pass implementation**: the execution agent finishes without additional research or
-clarification. Clarification the *user* owes the plan belongs in Phase 2's gate, not deferred to the execution
-agent. Check before reporting:
+clarification. Check before reporting:
 
 **Context Completeness**
 

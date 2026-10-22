@@ -37,7 +37,7 @@ gh pr checkout {N}
 ## Phase 2 — Load the context (so you review against the right bar)
 
 - **`CLAUDE.md`** + any `.claude/references/` — the project's standards are the review rubric.
-- **The implementation report** (if `piv-implement` wrote one — `.claude/reports/<slug>-report.md`, where
+- **The implementation report** (if `piv-implement` wrote one — `.claude/reports/<slug>-report.md` (feature branches) or `.claude/reports/issue-<N>-report.md` (fix branches; the `issue-<N>-report.md`, where
   `<slug>` is the head branch minus its `feature/` prefix; otherwise list `.claude/reports/` and pick the match)
   + its plan: read the **`## Deviations from the plan`** section. A documented deviation is an *intentional
   decision*, **not** an issue — only flag *undocumented* divergences. (No report? Review normally and note its
@@ -52,9 +52,9 @@ in itself; a check you could not run is reported as `NOT RUN`, never assumed gre
 
 ## Phase 4 — Review the diff
 
-No `code-reviewer` agent ships with these skills. If the project has one (`.claude/agents/code-reviewer.md`),
-dispatch it for the deep pass; **otherwise do the review yourself, here** (the new-session rule is what keeps it
-clean). Either way: review against the project's standards and report **high-confidence issues only** — anything
+These skills ship no subagents. If the project defines `.claude/agents/code-reviewer.md`, dispatch it for the deep
+pass; otherwise dispatch a built-in general-purpose subagent with the same brief; with no subagent mechanism at all,
+**do the review yourself, here** (the new-session rule is what keeps the inline pass clean). Either way: review against the project's standards and report **high-confidence issues only** — anything
 unconfirmed is listed as `Unverified` and does not drive the verdict. Read every changed file *in full* (not just
 the diff). Cover: correctness · type safety · pattern/standards compliance · security · performance · tests
 present · maintainability.
@@ -63,7 +63,7 @@ present · maintainability.
 
 | Severity | Meaning |
 |----------|---------|
-| **Critical** | Blocking — exploitable security flaw, data loss, crashes |
+| **Critical** | Blocking — security flaw (exploitable or unverified), data loss, crashes |
 | **High** | Should fix before merge — type-safety holes, missing error handling, logic errors |
 | **Medium** | Pattern inconsistencies, missing edge cases, hardening gaps, *undocumented* deviations from the plan |
 | **Low** | Suggestions, minor polish |
@@ -73,7 +73,7 @@ Acknowledge what's done well, too — review is constructive, not just a defect 
 ## Phase 5 — Decide
 
 - **Approve** — no critical/high issues, validation passes, matches intent.
-- **Request changes** — high issues, or fixable validation failures, or undocumented pattern violations.
+- **Request changes** — high issues, or fixable validation failures, or any Medium finding the project's standards make blocking.
 - **Block** (request-changes, strongly) — critical security/data issues, or wrong fundamental approach.
 - Honor an explicit `--approve` / `--request-changes` flag, but never approve over an unresolved critical issue,
   and never approve when validation is `FAIL` or wholly `NOT RUN`.

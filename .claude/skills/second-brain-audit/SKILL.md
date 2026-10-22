@@ -7,11 +7,6 @@ arguments: [notes]
 
 # Second Brain Audit
 
-Notes rot in a specific way. Nothing is corrupted and nothing goes missing: a fact
-simply stops being true, the note keeps saying it, and nothing raises a hand. The cause
-is almost always the same. **The write path can only append.** New information becomes
-a new line under the old line, which is correct for some facts and ruinous for others.
-
 ## The one idea
 
 Every stored fact is one of two kinds.
@@ -22,18 +17,13 @@ Every stored fact is one of two kinds.
 | **Event** | a timestamped thing that **happened** | **append** it |
 
 A price, a status, an owner, a deadline: state. A payment, a signature, a decision, a
-lesson learned: event. The update rules are **opposites**. Replacing an event destroys
-history. Appending a state creates two answers to one question, and the stale copy
-usually sits higher in the file, so it is read first.
-
-**Structure carries this rule, not an instruction.** Asking a model, or a person, to
-remember to update the old entry fails quietly and constantly. Give the page two
-sections and the rule follows from where a fact lands.
+lesson learned: event. **Structure carries this rule, not an instruction:** give the
+page two sections and the rule follows from where a fact lands.
 
 ## Phase 1: establish the shape
 
 **Do not assume a wiki, a vault, or pages.** Most people have none of those. Look at what
-exists first, because it changes what the audit can see and what the fix should be.
+exists first.
 
 | Shape | Looks like | Where state should live |
 |---|---|---|
@@ -52,19 +42,14 @@ Then establish two things:
 
 1. **Where the notes live.** A folder of markdown, for the scan.
 2. **What the agent reads on every session.** `CLAUDE.md`, a `MEMORY.md`, a system prompt
-   file, whatever loads automatically. This matters more than anything else: a stale fact
-   in an archive is harmless, the same fact in the always-loaded file is the bug. If the
-   user does not know, say so and run without it.
+   file, whatever loads automatically. If the user does not know, say so and run without it.
 
-Name daily-notes-only out loud. Dated notes are an **event log**, and events are supposed
-to accumulate; what is missing is any place that says what is true *now*. Telling someone
-to restructure their journal would be actively wrong.
+Name daily-notes-only out loud: dated notes are an **event log**, and what is missing is
+any place that says what is true *now*. Do not tell them to restructure their journal.
 
 ## Phase 2: audit the always-loaded surface
 
-**This works on every second brain**, in any tool, in any domain, with or without the
-script. Run it always, even when the scan found plenty. Whatever the agent reads on every
-session is small enough to read in full and check claim by claim.
+Run it always, with or without the script, even when the scan found plenty.
 
 1. **Read that surface completely.** Then check it actually arrives in full: hooks and
    context budgets truncate, usually from the bottom, and a file that is "always loaded"
@@ -81,13 +66,12 @@ session is small enough to read in full and check claim by claim.
    - **Unsupported.** Nothing anywhere backs it up. Often the claim was true once and the
      evidence was never written, which is worth saying out loud.
 
-A few dozen claims is typical and is a few minutes of reading. Report the contradicted
-pile first, then the unsupported pile. Both are findings.
+Report the contradicted pile first, then the unsupported pile. Both are findings.
 
 ## Phase 3: run the scan, if the notes suit it
 
 An accelerator, not the audit. It applies to markdown folders where facts carry dollar
-amounts or sit on `Key: value` bullets. Skip it otherwise; phase 2 already did the work.
+amounts or sit on `Key: value` bullets. Skip it otherwise.
 
 ```bash
 python <skill>/scripts/audit.py <notes-dir> \
@@ -109,24 +93,18 @@ invisible to it, and its "touch a file your agent loads" count covers only what 
 see; the always-loaded file is audited in phase 2, never by that count. When it prints a
 COVERAGE WARNING, read it out rather than reporting "no problems found".
 
-Why a script at all: the count has to be the same twice, and a model asked to tally 600
-bullets returns a confident number and a different one tomorrow. The script counts; the
-agent judges.
-
 ## Phase 4: read what neither can see
 
 Open a few flagged pages and look for what no regex will catch:
 
 - **Lifecycle conflicts.** A page saying "launching next week" while a log entry from
-  three months ago records the project being cancelled. No number disagrees, so nothing
-  is flagged, and it is completely wrong.
+  three months ago records the project being cancelled.
 - **Facts never written down at all.** The most common cause of a wrong answer: the true
   value only ever existed in a conversation or a daily note, and reorganizing cannot reach
-  it. Say so plainly rather than implying the restructure will help; the audit's real
-  value is identifying *which* of the two problems is in play.
+  it. Say so plainly rather than implying the restructure will help; say *which* of the
+  two problems is in play.
 - **Pages that must not be touched.** Checklists, reference lists, packing lists are lists
-  on purpose. Converting one destroys what makes it useful, and every structural check
-  still passes.
+  on purpose. Converting one destroys what makes it useful.
 - **Two true lines, one impossible schedule.** Nothing checks two Current State lines
   against each other. Two deliverables "live 9/23" on two keys is either a real conflict
   or a shared host video, and the lines should say which. Grep the block for repeated
@@ -136,8 +114,7 @@ Open a few flagged pages and look for what no regex will catch:
   the one thing that would have exposed them. Check `git blame` on a freshly dated line
   before trusting it; a date claims the value was verified, not that the line was touched.
 - **Key sprawl.** One subject across many Current State keys ("Brief 10050 draft", "Brief
-  10050 review pass", "Brief 10050 record day"). Every key is unique, so the duplicate
-  check passes, and the freshest can still be stale. Same fix as the duplicate-key bug:
+  10050 review pass", "Brief 10050 record day"). Same fix as the duplicate-key bug:
   one key per thing that has one status. Report it; collapsing is the owner's call.
 
 ## Phase 5: report
@@ -171,7 +148,7 @@ worst *location*, which depends on the shape found in phase 1:
   block or into the Log by rule 2. Two sections claiming now is the bug you are removing,
   so never leave the old block in place.
 - **Daily notes only** → create **one** file holding current values, and leave every
-  journal entry untouched. The journal was already correct.
+  journal entry untouched.
 - **Not markdown** → do not restructure anything. Explain where the current value should
   live in the tool they already use, and stop there.
 
@@ -197,8 +174,7 @@ rather than added to.**
 Conversion rules, in order of importance:
 
 1. **Lose nothing.** Every existing line lands in one of the two sections, verbatim. This
-   is sorting, not rewriting. Improving the prose is how information disappears without
-   anyone noticing.
+   is sorting, not rewriting.
 2. **One entry per subject in Current State.** Where two lines describe the same current
    value, the newer wins and the older moves to the Log. Where the order is unclear, ask.
    Never guess.
@@ -215,9 +191,7 @@ is still outstanding (phase 8), or the next run starts from nothing.
 
 ## Phase 7: change the write path
 
-Converting pages fixes today; changing how facts get written is what stops the
-recurrence. Add to whatever file instructs the agent (`CLAUDE.md`, `AGENTS.md`, a system
-prompt):
+Add to whatever file instructs the agent (`CLAUDE.md`, `AGENTS.md`, a system prompt):
 
 ```markdown
 ## Writing to these notes
@@ -234,9 +208,8 @@ If unsure, append to the Log and say so. A missing state update is recoverable;
 a rewritten history is not.
 ```
 
-Then state the honest part: this instruction gets followed most of the time, not all of
-the time. Anything that must happen every time needs a mechanism. Cheap ones worth more
-than the instruction:
+Then say the honest part: this instruction gets followed most of the time, not all of the
+time, and anything that must happen every time needs a mechanism. Cheap ones:
 
 - Re-run this audit on a schedule and watch whether the contradicted count from phase 2
   climbs; phase 8 makes that comparison possible. The script's "finished but open" total
@@ -245,15 +218,12 @@ than the instruction:
   match its open-list regex.
 - Stamp dates with a script after the fact instead of asking for them.
 - Regenerate any column that can be regenerated (a repo's visibility from the forge, a
-  version from the package file) instead of typing it. A value nobody checks is wrong
-  within a quarter.
+  version from the package file) instead of typing it.
 
 ## Phase 8: leave the findings somewhere durable
 
-Everything above exists only in a conversation. Close the window and the audit is gone,
-which is the same failure this skill is about, committed by the skill itself. So write it
-down, in the shape being taught. **One file** in the notes folder, called
-`second-brain-audit.md`:
+Write the findings down, in the shape being taught: **one file** in the notes folder,
+called `second-brain-audit.md`:
 
 ```markdown
 # Second brain audit
@@ -290,22 +260,15 @@ Four rules for that file:
 
 ### Then hand it to the fixer
 
-Say this out loud at the end, because it is the question every user has and the answer
-is not "run this again":
+Say this out loud at the end:
 
 > The audit fixed one location so you could see the shape. To work through the rest, run
 > `/second-brain-fix`, or `/second-brain-fix <path to this file>` from anywhere else. It
 > reads this same file, batches the findings, and updates the ledger as it goes.
 
-One location at a time is correct for this skill and useless as a plan. The batch job is a
-separate skill with a different contract: this one never bulk-converts and gates every
-write behind a diff; that one writes many files at once and requires a branch or a copy
-before it starts.
-
 ### Stop when the surface is clean
 
-There is no version of this where every page gets converted, and chasing that is how
-people quit in week two. The finish line is narrow: **nothing contradicted in what the
+The finish line is narrow: **nothing contradicted in what the
 agent loads every session.** An archive full of old pages is history, not rot. Convert a
 deeper page only when it has a trail (several entries about one subject over time) or
 keeps producing wrong answers. Restructuring alone often moves the number less than

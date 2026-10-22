@@ -69,6 +69,9 @@ be planned and run in parallel; dependent ones wait their turn.
 
 ### Step 5 — Confirm, then write the ticket breakdown
 
+**Interactive only — not for non-interactive runs.** This step is gated on a human go-ahead; if the caller says the
+run is unattended (`piv-run-full-loop`, a factory, a scheduled job), stop and say so rather than creating tickets alone.
+
 Draft the breakdown in the shape below and **show it to the user — titles, sizes, dependency graph, waves — before
 creating anything in a tracker.** Wait for the go-ahead. Then write the tickets to your tracker (Jira, Linear,
 GitHub Issues, Notion, Archon's tasks — through its CLI/MCP), linked to or parented under the epic — or to a

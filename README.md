@@ -95,7 +95,7 @@ For the last two, restart your session (or run `/skills`) and they'll show up.
 | `plan-create-prd` | Interviews you into a problem-first PRD. Intent, never engineering decisions |
 | `plan-architecture` | A working session on *how* to build it: stack, data shape, trade-offs, risks |
 | `piv-slice-epic` | Slices an epic plus its architecture into PIV-sized tickets with a dependency graph |
-| `plan-create-stories` | Turns a PRD into a real backlog in Jira or GitHub |
+| `plan-create-stories` | Turns a simple PRD (no architecture doc) into a flat backlog in Jira, GitHub or a local file; with an architecture doc, use `piv-slice-epic` |
 
 **The PIV loop: plan, implement, validate**
 
@@ -123,13 +123,13 @@ For the last two, restart your session (or run `/skills`) and they'll show up.
 | Skill | What it does |
 |---|---|
 | `worktree-create` | Spins up N git worktrees, each configured, installed, and health-checked |
-| `worktree-merge` | Integrates those branches through one safe integration branch |
+| `worktree-merge` | Integrates those branches through one safe integration branch. Local solo use only; it bypasses the PR gate |
 
 **Build your own AI Layer: the meta-skills**
 
 | Skill | What it does |
 |---|---|
-| `rules-create-global` | Derives a lean root `CLAUDE.md` from your codebase or your specs. The customizable `/init` |
+| `rules-create-global` | Derives a lean root `CLAUDE.md` / `AGENTS.md` from your codebase or your specs. The customizable `/init` |
 | `rules-check-drift` | Checks whether your rules file is still *true* after recent changes |
 | `ablate-ai-layer` | Tests whether your rules still earn their place: strips them, reruns the same task, diffs the two |
 | `skills-create` | Authors a new skill, or refactors a fat one into `SKILL.md` plus `references/` |

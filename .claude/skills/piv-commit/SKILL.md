@@ -21,18 +21,22 @@ Turn the uncommitted work into atomic commits: one logical change per commit, ea
    - **Secrets — refuse to stage** unless the user explicitly asks for that exact file: `.env*` (committed
      templates like `.env.example` are fine), `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `credentials*`, `*.p12`,
      `.netrc`. Also scan the diff for secret-looking content (`-----BEGIN … PRIVATE KEY-----`, `AKIA…`, `ghp_…`,
-     `sk-…`, long literals assigned to `*KEY`/`*TOKEN`/`*SECRET`/`*PASSWORD`). Name the file and stop for it.
+     `sk-…`, long literals assigned to `*KEY`/`*TOKEN`/`*SECRET`/`*PASSWORD`). Name the file and stop for it. Never print, cat, echo, grep or quote the contents of an env or secret file —
+     not even masked; name the file or the key, never the value.
    - **Junk — leave unstaged** unless explicitly asked: `node_modules/`, `dist/`, `build/`, `__pycache__/`,
      `*.pyc`, `.DS_Store`, `*.log`, coverage output. Suggest a `.gitignore` entry rather than adding one yourself.
-   - **Agent-written folders:** `.claude/plans/` and `.claude/reports/` are committed **with the work by default**
-     — they document intent, and `piv-create-pr` / `piv-review-pr` read the reports. `.claude/code-reviews/`
-     is **asked about first**: reviews are usually posted to the PR, not stored in the repo. If you cannot ask
-     (autonomous run), leave it unstaged and say so.
+   - **Agent-written folders.** Committed **with the work by default**: `.claude/plans/`, `.claude/reports/`,
+     `.claude/execution-reports/`, `docs/tickets/`, `docs/issues/` — they document intent and later skills read
+     them. **Asked about first, default no**: `.claude/code-reviews/`, `.claude/system-reviews/`, `.claude/scans/`
+     — reviews live on the PR, not in the repo. In a non-interactive run, leave the ask-first folders unstaged and
+     say so.
 
 3. **One concern per commit.** If the diff mixes unrelated concerns (the feature plus a stray refactor, a
    dependency bump, a config fix), propose a split: list the groups with their files and, once the user agrees,
    stage and commit each group separately with its own message. A file that mixes concerns: say so, then commit
-   it under the dominant concern or ask.
+   it under the dominant concern or ask. **Non-interactive mode.** If the caller says the run is unattended (e.g.
+   invoked by `piv-run-full-loop`), never stop to ask: make one commit under the dominant concern, list the mixed
+   concerns in the body, leave the ask-first folders (step 2) unstaged, and say so.
 
 4. **Write the message.** `<tag>: <atomic description>` — tag is `feat`, `fix`, `docs`, `refactor`, `test`,
    `chore`, etc., reflecting the work; the summary is specific and descriptive; add a body when the *why* isn't

@@ -1,7 +1,7 @@
 ---
 name: prime-backend
 description: Primes the agent on the backend only (API routes, services, data models, database), not the frontend. Use at session start for work on endpoints, business logic or data access ("prime the backend"). Optionally loads Jira/Confluence context first.
-argument-hint: "[jira-issue-keys] [confluence-page-ids]"
+argument-hint: "[ticket keys/URLs] [doc page ids/URLs]"
 ---
 
 # Prime Backend: Load Backend Context
@@ -70,8 +70,8 @@ Note any open migrations, pending schema changes, or in-progress API changes.
 Provide a concise summary covering:
 
 ### External Task Context (if loaded)
-- Jira issue(s): key, title, one-line goal, acceptance criteria
-- Confluence page(s): title and what they specify
+- Ticket(s) (Jira/Linear/GitHub): key, title, one-line goal, acceptance criteria
+- Doc page(s) (Confluence/Notion): title and what they specify
 
 ### Backend Overview
 - Framework and major libraries (FastAPI, Django, Express, NestJS, Spring, etc.)

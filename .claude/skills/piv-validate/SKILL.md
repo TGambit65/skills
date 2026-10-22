@@ -1,6 +1,6 @@
 ---
 name: piv-validate
-description: Runs the project's tests, type checks and lint and returns one PASS/FAIL verdict. Use before committing or opening a PR to confirm zero regressions.
+description: Runs the project's tests, type checks and lint and returns one PASS/FAIL verdict. Use before committing or opening a PR to confirm zero regressions. Use before committing, before opening a PR, or after finishing a chunk of work.
 ---
 
 # Validate
@@ -28,6 +28,8 @@ Run every check this project has and report a single PASS/FAIL verdict.
 
 Run the checks in order. Keep going after a failure so the report covers everything, and capture the
 output of any command that fails or cannot run.
+
+This skill asks nothing and is safe in a non-interactive run.
 
 ## 1. Tests
 

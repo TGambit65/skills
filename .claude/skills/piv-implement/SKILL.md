@@ -20,8 +20,9 @@ ask: wherever this skill says STOP, write the report with `Status: PARTIAL` and 
 
 A ticket gets built on its own branch, so it can become one PR. Ideally you're already on that branch — cut it
 before planning — so a committed plan rides into the PR; a plan committed on the base branch won't be in this
-branch's PR. If you're still on base, create the branch now. Detect the base branch (don't hardcode `main`):
-`git symbolic-ref refs/remotes/origin/HEAD` prints `refs/remotes/origin/<base>` (fallback `main`).
+branch's PR. If you're still on base, create the branch now. Detect the base branch — never hardcode `main`: `git symbolic-ref refs/remotes/origin/HEAD` (strip
+`refs/remotes/origin/`); if unset, the `HEAD branch` line of `git remote show origin`; if neither answers, use
+`main` and say so.
 
 - **On the base branch, clean** → create one: `git checkout -b feature/<plan-slug>`.
 - **On the base branch, and the only uncommitted changes are plan files under `.claude/plans/`** → create the
@@ -81,9 +82,9 @@ If a command fails, fix the implementation, re-run it, and continue only when it
 - **Fix the code, never the check.** Never skip, delete, weaken or mark-skip a test, loosen an assertion, or add
   a lint/type ignore to make a check pass. Changing a test is a deviation: allowed only when the plan's spec shows
   the test itself is wrong, and always recorded under *Deviations* with the reason — never quietly edited away.
-- **Retry cap: 3 fix attempts per task or command.** After the third failure, stop working on it, record the
-  failing command and its last real output under *Issues encountered*, set `Status: PARTIAL`, and report. Do not
-  move on as if it passed.
+- **Retry cap: 3 fix-and-rerun attempts per failing check.** After the third failure stop working on it, record
+  the failing command and its last real output under *Issues encountered*, set `Status: PARTIAL`, and hand back —
+  never move on as if it passed.
 - **Real output only.** Every result in the report is a pasted excerpt of the command's actual output (final
   summary lines with counts), not a paraphrase. A command that could not run — missing tool, wrong directory,
   placeholder command — is `NOT RUN` with its error, never a pass.

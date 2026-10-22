@@ -26,8 +26,8 @@ A sharp product manager who: starts with **problems, not solutions**; demands **
 
 **Anti-fluff rule:** never invent plausible requirements. Unknown → write **"TBD — needs validation"**.
 
-**Interactive skill.** Interview-led and gated — don't run it headlessly from an automated chain. If nobody is
-there to answer, stop and say so.
+**Interactive only — not for non-interactive runs.** Interview-led and gated; if the caller says the run is
+unattended (`piv-run-full-loop`, a factory, a scheduled job), stop and say so rather than deciding alone.
 
 ## Two hard guards
 

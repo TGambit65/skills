@@ -1,7 +1,7 @@
 ---
 name: prime-codebase
 description: Orients the agent in a codebase before planning or implementing: bounded structure map, core docs, key files, git state. Use at session start or when asked to "prime" or "load context". Optionally loads Jira issues and Confluence pages first.
-argument-hint: "[jira-issue-keys] [confluence-page-ids]"
+argument-hint: "[ticket keys/URLs] [doc page ids/URLs]"
 ---
 
 # Prime: Load Project Context
@@ -20,7 +20,7 @@ Build a working understanding of the codebase — structure, documentation, key 
 
 - **Jira keys:** fetch each issue via your Atlassian/Jira MCP tools (e.g. a "get issue" tool; some servers need a cloud id first, from a "get accessible resources" tool — ask for markdown where offered). Treat summary, description, and acceptance criteria as the task context for everything that follows.
 - **Confluence page ids:** fetch each page the same way (a "get page" tool). Treat the content as supporting context (specs, design docs, requirements).
-- **No Atlassian tool available:** say so and ask the user to paste the text. Never guess at what an issue or page says.
+- **No tool reaches it** (any tracker — Jira, Linear, GitHub via `gh issue view`, Confluence, Notion): say so and ask the user to paste the text. Never guess at what a ticket or page says.
 
 Briefly summarize any external context loaded before continuing — this frames the rest of the priming.
 
@@ -37,7 +37,9 @@ Directories to depth 2 (first 150):
 
 That is all the structure that loads automatically — do **not** list every tracked file. Drill in only where the task needs it: `git ls-files -- <dir> | head -100`. `tree -L 3 -I 'node_modules|__pycache__|.git|dist|build' <dir>` is a readable view of one subtree where `tree` exists (not on Windows or minimal images); the git commands need nothing beyond git.
 
-In a monorepo (several apps/packages at depth 2), pick the package the task touches — from Step 0 context, or ask — and focus the remaining steps there.
+In a monorepo (several apps/packages at depth 2), pick the package the task touches — from Step 0 context, or ask; in a non-interactive run (e.g. invoked by
+`piv-run-full-loop`) take the package the feature description names, else the largest, and say so — and focus the
+remaining steps there.
 
 ### 2. Read Core Documentation
 
@@ -66,8 +68,8 @@ Check current branch and status (first 30 lines):
 Provide a concise summary covering:
 
 ### External Task Context (if loaded)
-- Jira issue(s): key, title, one-line goal, acceptance criteria
-- Confluence page(s): title and what they specify
+- Ticket(s) (Jira/Linear/GitHub): key, title, one-line goal, acceptance criteria
+- Doc page(s) (Confluence/Notion): title and what they specify
 
 ### Project Overview
 - Purpose and type of application

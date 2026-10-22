@@ -62,6 +62,9 @@ HANDOFFS = [
     ("piv-commit", "piv-create-pr", ".claude/references/conventions.md"),
     ("system-execution-report", "system-evolution-review", ".claude/execution-reports/"),
     ("piv-slice-epic", "piv-plan-implementation", "docs/tickets/"),
+    ("piv-implement-issue", "piv-create-pr", ".claude/reports/"),
+    ("piv-implement-issue", "piv-review-pr", ".claude/reports/"),
+    ("piv-investigate-issue", "piv-commit", "docs/issues/"),
 ]
 
 # Sections a consumer requires in a producer's output template. The producer's SKILL.md must

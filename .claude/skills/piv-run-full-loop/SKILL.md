@@ -96,3 +96,4 @@ Fill from actual results. A step that did not run is `NOT RUN`; leave a field bl
 - Confirm the assumptions above; amend the plan's `AMENDMENTS` section if any was wrong
 - If stopped: fix what stopped it (`piv-fix-review-findings` for review findings), then `piv-validate` → `piv-commit`
 - If committed: `piv-create-pr` to push and open the PR
+- Continue with the next feature
