@@ -183,6 +183,7 @@ def screenctl(*args: str) -> subprocess.CompletedProcess:
 
 
 def main() -> int:
+    """Watch the driven session and answer its permission prompts until it finishes or a refusal hands back control."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--title", help="window holding the driven session")
     # Prefer --id for a driven agent. Claude Code renames its own terminal window

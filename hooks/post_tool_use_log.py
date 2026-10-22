@@ -77,12 +77,14 @@ REDACT = (
 
 
 def _redact(text: str) -> str:
+    """Scrub every credential shape in REDACT from text."""
     for pattern, replacement in REDACT:
         text = pattern.sub(replacement, text)
     return text
 
 
 def _clip(value: object) -> object:
+    """Redact a value and truncate it to MAX_FIELD characters."""
     text = _redact(str(value))
     return text if len(text) <= MAX_FIELD else text[:MAX_FIELD] + f"... [+{len(text) - MAX_FIELD} chars]"
 

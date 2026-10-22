@@ -276,6 +276,7 @@ def _print_final(recs: list[dict], how: str) -> None:
 
 
 def cmd_wait(a) -> int:
+    """Block until a turn completes, the session goes quiet with the turn open, or the timeout passes."""
     p = latest(a.repo)
     base = len(turn_ends(records(p)))
     deadline = time.time() + a.timeout
@@ -351,6 +352,7 @@ def main() -> int:
     # of characters it cannot encode. Without this, piping a transcript to a file
     # dies mid-write and leaves an empty file behind. newline="\n" matters as much:
     # Python emits CRLF on Windows and the stray CR breaks shell comparisons.
+    """Parse arguments and dispatch to the requested session_watch command."""
     for s in (sys.stdout, sys.stderr):
         try:
             s.reconfigure(encoding="utf-8", newline="\n")

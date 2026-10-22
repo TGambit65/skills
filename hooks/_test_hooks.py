@@ -37,15 +37,18 @@ BLOCK, ALLOW, ERROR = 2, 0, 1
 
 class Case:
     def __init__(self, hook, payload, expect, why, env=None, setup=None, check=None):
+        """One payload, the hook it goes to, the exit code it must produce, and why."""
         self.hook, self.payload, self.expect, self.why = hook, payload, expect, why
         self.env, self.setup, self.check = env or {}, setup, check
 
 
 def bash(command, expect, why):
+    """A secrets-hook case for a Bash command."""
     return Case(SECRETS, {"tool_name": "Bash", "tool_input": {"command": command}}, expect, why)
 
 
 def tool(name, tool_input, expect, why):
+    """A secrets-hook case for any tool and input."""
     return Case(SECRETS, {"tool_name": name, "tool_input": tool_input}, expect, why)
 
 
@@ -447,6 +450,7 @@ SECRETS_CASES = [
 # stop_tests_must_pass.py - needs a scratch project and a session
 # ----------------------------------------------------------------------------
 def stop_cases(scratch):
+    """Cases for the stop hook: red and green test runs, loop guard, and test-file tampering."""
     proj = scratch / "proj"
     (proj / "tests").mkdir(parents=True)
     test_file = proj / "tests" / "test_a.py"
@@ -454,15 +458,19 @@ def stop_cases(scratch):
     sid = "corpus-" + uuid.uuid4().hex
 
     def payload(active=False, session=sid):
+        """A Stop-hook payload for the fixture project."""
         return {"session_id": session, "cwd": str(proj), "hook_event_name": "Stop", "stop_hook_active": active}
 
     def edit_test():
+        """Weaken the snapshotted test so a green run proves nothing."""
         test_file.write_text("def test_a():\n    assert 2 + 2 == 4\n", encoding="utf-8")
 
     def delete_test():
+        """Delete the snapshotted test file."""
         test_file.unlink()
 
     def restore_test():
+        """Put the original test file back."""
         test_file.write_text("def test_a():\n    assert True\n", encoding="utf-8")
 
     return [
@@ -484,6 +492,7 @@ def stop_cases(scratch):
 # pre_tool_use_dependencies.py
 # ----------------------------------------------------------------------------
 def deps_cases(scratch):
+    """Cases for the dependencies hook: edits blocked until the declared dependency was read."""
     proj = scratch / "deps"
     (proj / ".claude" / "hooks").mkdir(parents=True)
     (proj / "app" / "api").mkdir(parents=True)
@@ -497,6 +506,7 @@ def deps_cases(scratch):
     sid = "deps-" + uuid.uuid4().hex
 
     def p(tool, path, cwd=proj, session=sid):
+        """A file-tool payload for path inside the fixture project."""
         return {"session_id": session, "cwd": str(cwd), "tool_name": tool, "tool_input": {"file_path": str(cwd / path)}}
 
     return [
@@ -514,11 +524,13 @@ def deps_cases(scratch):
 # post_tool_use_log.py / session_start_context.py / stop_notify.py
 # ----------------------------------------------------------------------------
 def observer_cases(scratch):
+    """Cases for the hooks that never block: the action log, session start, and notify."""
     logproj = scratch / "log"
     logproj.mkdir()
     logfile = logproj / "logs" / "agent-actions.jsonl"
 
     def log_written(result):
+        """Check the last log line is this Bash call, with no credential left in it."""
         if not logfile.exists():
             return "no log file written"
         last = json.loads(logfile.read_text(encoding="utf-8").splitlines()[-1])
@@ -533,6 +545,7 @@ def observer_cases(scratch):
     (startproj / "NOTES.md").write_text("sprint: hooks review\n", encoding="utf-8")
 
     def nested_context(result):
+        """Check the context file was injected under hookSpecificOutput.additionalContext."""
         try:
             out = json.loads(result.stdout)
         except Exception:
@@ -546,6 +559,7 @@ def observer_cases(scratch):
     empty.mkdir()
 
     def no_stdout(result):
+        """Check nothing was printed for a project with nothing to say."""
         return None if result.stdout.strip() == "" else "printed context for an empty project"
 
     return [
@@ -574,6 +588,7 @@ def observer_cases(scratch):
 
 # ----------------------------------------------------------------------------
 def run_case(hooks_dir, case):
+    """Run one hook on one payload; return the result and a problem string, or None."""
     if case.setup:
         case.setup()
     stdin = case.payload if isinstance(case.payload, str) else json.dumps(case.payload)
@@ -599,6 +614,7 @@ def run_case(hooks_dir, case):
 
 
 def describe(case):
+    """A short printable label for a case's payload."""
     if isinstance(case.payload, str):
         return repr(case.payload[:40])
     ti = case.payload.get("tool_input", {})
@@ -610,6 +626,7 @@ def describe(case):
 
 
 def main():
+    """Run the whole corpus and exit 0 only when every case produces its expected exit code."""
     args = sys.argv[1:]
     verbose = "-v" in args
     hooks_dir = HERE

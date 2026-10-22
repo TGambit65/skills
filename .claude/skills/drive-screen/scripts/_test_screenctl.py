@@ -176,6 +176,7 @@ root = pathlib.Path.home() / ".claude" / "projects"
 
 
 def _mtime(q: pathlib.Path) -> float:
+    """A file's modification time, or 0.0 if it vanished mid-listing."""
     try:
         return q.stat().st_mtime
     except OSError:          # a session can delete or rotate its file mid-glob

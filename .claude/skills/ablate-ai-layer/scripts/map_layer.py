@@ -134,6 +134,7 @@ def classify(path: Path, default: str) -> tuple[str, str]:
 
 
 def iter_matches(root: Path):
+    """Yield one record per AI-layer artifact under root: path, agent, kind, size, and listed description cost."""
     seen = set()
     for pattern, agent, default, note in PATTERNS:
         for p in root.glob(pattern):
@@ -174,6 +175,7 @@ def iter_matches(root: Path):
 
 
 def main() -> int:
+    """Map the repository's AI layer and print it (or --json) with always-loaded token estimates."""
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("repo_root", nargs="?", default=".", help="repository to map (default: cwd)")

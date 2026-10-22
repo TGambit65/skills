@@ -32,6 +32,7 @@ CHECKS = [
 
 
 def main(argv: list[str]) -> int:
+    """Run every check (or only the quick ones) and print one PASS/FAIL line each."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--quick", action="store_true", help="contracts + hooks corpus only")
     args = ap.parse_args(argv)

@@ -315,6 +315,7 @@ class Block(Exception):
     does not get echoed back whole."""
 
     def __init__(self, reason, evidence=""):
+        """A block reason, plus a short excerpt of the input that triggered it."""
         super().__init__(reason)
         self.reason = reason
         self.evidence = evidence[:60]
@@ -352,6 +353,7 @@ def normalize(command):
 
 
 def _brace_expand(word, depth=0):
+    """Expand shell braces ({a,b}) in a word, a few levels deep, so .{env,x} is seen as .env."""
     m = re.search(r"\{([^{}]*)\}", word)
     if not m or depth > 4:
         return [word]
@@ -418,6 +420,7 @@ def _verb(stage):
 
 
 def _dumps_environment(verb, args):
+    """True when the command prints the environment, or a secret-named variable from it."""
     if verb == _PRINT_ENV:
         return not args or any(SECRET_NAME.search(a) for a in args)
     if verb == "env":
@@ -674,6 +677,7 @@ def check_tool(tool_name, tool_input):
 
 
 def main():
+    """Read the tool call from stdin and exit 2 with a reason if it would expose a secret or destroy work."""
     try:
         data = json.load(sys.stdin)
         tool_name = str(data.get("tool_name", ""))

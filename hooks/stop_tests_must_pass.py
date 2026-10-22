@@ -200,6 +200,7 @@ def _clip(text: str) -> str:
 
 
 def main() -> None:
+    """Run the tests when the agent tries to stop; block the stop if they fail or were tampered with."""
     try:
         data = json.load(sys.stdin)
 

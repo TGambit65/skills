@@ -52,6 +52,7 @@ from pathlib import Path
 
 
 def _git(args, cwd) -> str:
+    """Run a git command in cwd and return its stdout, or an empty string on any failure."""
     try:
         result = subprocess.run(
             ["git"] + args,

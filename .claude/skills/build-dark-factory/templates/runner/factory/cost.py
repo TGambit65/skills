@@ -130,6 +130,7 @@ def cmd_report(_argv: list[str]) -> int:
 
 
 def today_utc() -> str:
+    """Today's date as YYYYMMDD in UTC, matching the run ids run-workflow.sh stamps."""
     import datetime
     # UTC, because run-workflow.sh stamps the run id with `date -u`.
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
@@ -164,6 +165,7 @@ def daily_total(day: str) -> "tuple[float, int, int]":
 
 
 def cmd_daily(argv: "list[str]") -> int:
+    """Print today's spend; exit 1 when it has reached the cap or the cap is not a finite number."""
     cap = None
     if argv:
         try:

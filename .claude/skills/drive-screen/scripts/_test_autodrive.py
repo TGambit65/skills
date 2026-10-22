@@ -22,6 +22,7 @@ CHECKS = 0
 
 
 def check(name, got, want):
+    """Count one check and record a failure when got differs from want."""
     global CHECKS
     CHECKS += 1
     if got != want:

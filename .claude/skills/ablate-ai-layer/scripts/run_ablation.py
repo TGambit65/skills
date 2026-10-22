@@ -247,6 +247,7 @@ def run_one(root: Path, sha: str, arm: str, index: int, prompt: str,
 # ---------------------------------------------------------------- main
 
 def main() -> int:
+    """Parse arguments, run both arms of the ablation in parallel worktrees, and write the results."""
     ap = argparse.ArgumentParser(
         description="Run the control and stripped arms of an AI-layer ablation.")
     ap.add_argument("repo", nargs="?", default=".")

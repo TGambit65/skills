@@ -94,17 +94,21 @@ PREFILLED_RE = re.compile(
 
 class Report:
     def __init__(self) -> None:
+        """Start with no failures and no warnings."""
         self.failures: list[dict] = []
         self.warnings: list[dict] = []
 
     def fail(self, check: str, where: str, msg: str) -> None:
+        """Record a failure."""
         self.failures.append({"check": check, "where": where, "msg": msg})
 
     def warn(self, check: str, where: str, msg: str) -> None:
+        """Record a warning."""
         self.warnings.append({"check": check, "where": where, "msg": msg})
 
 
 def parse_frontmatter(text: str) -> dict:
+    """Parse a SKILL.md's YAML frontmatter shallowly into a dict (no yaml dependency)."""
     m = FM_RE.match(text)
     if not m:
         return {}
@@ -121,6 +125,7 @@ def parse_frontmatter(text: str) -> dict:
 
 
 def strip_quotes(s: str) -> str:
+    """Strip one pair of matching surrounding quotes."""
     s = s.strip()
     if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
         return s[1:-1]
@@ -128,6 +133,7 @@ def strip_quotes(s: str) -> str:
 
 
 def load_skills() -> dict[str, dict]:
+    """Load every skill directory: its SKILL.md text and parsed frontmatter."""
     skills: dict[str, dict] = {}
     for d in sorted(p for p in SKILLS.iterdir() if p.is_dir()):
         md = d / "SKILL.md"
@@ -137,10 +143,12 @@ def load_skills() -> dict[str, dict]:
 
 
 def body_without_fences(text: str) -> str:
+    """The text with fenced code blocks removed."""
     return FENCE_RE.sub("", text)
 
 
 def check_frontmatter(skills: dict, rep: Report) -> None:
+    """Every skill has a SKILL.md with a valid name and a non-empty description within limits."""
     for name, s in skills.items():
         where = f".claude/skills/{name}/SKILL.md"
         if not s["text"]:
@@ -162,6 +170,7 @@ def check_frontmatter(skills: dict, rep: Report) -> None:
 
 
 def check_arguments(skills: dict, rep: Report) -> None:
+    """Declared arguments are used, and $name variables in the body are declared."""
     for name, s in skills.items():
         where = f".claude/skills/{name}/SKILL.md"
         raw = s["fm"].get("arguments", "")
@@ -183,6 +192,7 @@ def check_arguments(skills: dict, rep: Report) -> None:
 
 
 def check_bundled_files(skills: dict, rep: Report) -> None:
+    """Every references/, templates/ or scripts/ path a skill names exists."""
     pat = re.compile(r"(?<![\w./-])((?:references|templates|scripts)/[\w./()-]+)")
     for name, s in skills.items():
         where = f".claude/skills/{name}/SKILL.md"
@@ -198,6 +208,7 @@ def check_bundled_files(skills: dict, rep: Report) -> None:
 
 
 def check_skill_refs(skills: dict, rep: Report) -> None:
+    """Every skill name a skill mentions exists."""
     names = set(skills)
     pat = re.compile(r"(?:^|[\s(`/])/?((?:%s)[a-z0-9-]+)" % "|".join(re.escape(p) for p in SKILL_PREFIXES))
     for name, s in skills.items():
@@ -226,6 +237,7 @@ NON_SKILL_WORDS = {
 
 
 def check_abs_paths(skills: dict, rep: Report) -> None:
+    """No skill hardcodes another skill's .claude/skills/<name>/ path."""
     for name, s in skills.items():
         where = f".claude/skills/{name}/SKILL.md"
         for lineno, line in enumerate(s["text"].splitlines(), 1):
@@ -235,6 +247,7 @@ def check_abs_paths(skills: dict, rep: Report) -> None:
 
 
 def check_dynamic_lines(skills: dict, rep: Report) -> None:
+    """No load-time !`command` line contains an unfilled placeholder."""
     for name, s in skills.items():
         where = f".claude/skills/{name}/SKILL.md"
         for lineno, line in enumerate(s["text"].splitlines(), 1):
@@ -243,6 +256,7 @@ def check_dynamic_lines(skills: dict, rep: Report) -> None:
 
 
 def check_prefilled(skills: dict, rep: Report) -> None:
+    """No output template ships a result already filled in."""
     for name, s in skills.items():
         where = f".claude/skills/{name}/SKILL.md"
         for lineno, line in enumerate(s["text"].splitlines(), 1):
@@ -253,6 +267,7 @@ def check_prefilled(skills: dict, rep: Report) -> None:
 
 
 def check_handoffs(skills: dict, rep: Report) -> None:
+    """Every declared producer -> consumer handoff literal appears on both sides."""
     for producer, consumer, literal in HANDOFFS:
         for side in (producer, consumer):
             if side not in skills:
@@ -271,6 +286,7 @@ def check_handoffs(skills: dict, rep: Report) -> None:
 
 
 def check_readme(skills: dict, rep: Report) -> None:
+    """The README lists every skill and states the right skill count."""
     text = README.read_text(encoding="utf-8")
     listed = set(re.findall(r"`([a-z0-9-]+)`", text))
     for name in skills:
@@ -284,6 +300,7 @@ def check_readme(skills: dict, rep: Report) -> None:
 
 
 def check_manifests(rep: Report) -> None:
+    """The plugin manifests parse and agree on one version."""
     versions = {}
     for p in MANIFESTS:
         try:
@@ -298,6 +315,7 @@ def check_manifests(rep: Report) -> None:
 
 
 def token_table(skills: dict) -> list[dict]:
+    """Per-skill description and body sizes, for the always-loaded budget table."""
     rows = []
     for name, s in skills.items():
         desc = strip_quotes(s["fm"].get("description", ""))
@@ -313,6 +331,7 @@ def token_table(skills: dict) -> list[dict]:
 
 
 def main(argv: list[str]) -> int:
+    """Run every contract check and print the failures (or --json / --tokens)."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--tokens", action="store_true", help="print the always-loaded budget table")

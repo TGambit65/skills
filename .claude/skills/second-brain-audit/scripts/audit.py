@@ -182,6 +182,7 @@ def page_subject(stem: str) -> str | None:
 
 
 def norm_key(s: str) -> str:
+    """Normalise a bullet key for comparison: lowercase, no emphasis marks, single spaces."""
     return re.sub(r"\s+", " ", s.strip().lower().strip("*_` "))
 
 
@@ -189,6 +190,7 @@ def norm_value(s: str) -> str:
     """Lowercase, de-emphasise, canonicalise money, collapse whitespace, drop
     trailing punctuation. "$22k" and "$22,000." become one value."""
     def _money(m):
+        """Replace a money match with its canonical form, or leave it as written."""
         mv = money_value(m.group(0))
         return fmt_money(*mv) if mv else m.group(0)
     s = MONEY.sub(_money, s)
@@ -217,6 +219,7 @@ def iter_lines(text: str):
 def scan(root: Path, extra: list[str]):
     # The skill's own report (phase 8) quotes stale claims verbatim, so a later run
     # would read them as live values and contradict itself. Skip it by name.
+    """Read every markdown note under root and collect the raw material every heuristic needs."""
     files = sorted(p for p in root.rglob("*.md")
                    if ".git" not in p.parts and not p.name.startswith("second-brain-audit"))
 
@@ -429,6 +432,7 @@ def near_misses(subjects: dict, vocab: dict) -> list[tuple[str, str]]:
 
 
 def main() -> int:
+    """Audit a notes folder (read only) and print the report or --json."""
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("notes", type=Path, help="folder of markdown notes (read only)")
@@ -459,6 +463,7 @@ def main() -> int:
     def in_always(h):
         # Match whole path components: `MEMORY.md` names memory.md anywhere in the
         # tree, not `archive/OLDMEMORY.md`.
+        """True when a hit's file is one of the --always-loaded names, matched by whole path components."""
         f = h["file"].lower()
         return any(f == al or f.endswith("/" + al) for al in always)
 

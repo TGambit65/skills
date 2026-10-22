@@ -428,6 +428,7 @@ if OS == "Windows":
         # PowerShell owns this one step because System.Drawing grabs and
         # PNG-encodes together, and a 200ms process start is nothing next to a
         # once-per-step action.
+        """Screenshot one window to a PNG at out, scaled down to max_width when set."""
         w, h = win.w, win.h
         tw = min(w, max_width) if max_width else w
         th = max(1, round(h * tw / w))
@@ -587,6 +588,7 @@ elif OS == "Darwin":
     def capture(win: Win, out: str, max_width: int) -> None:
         # -R takes POINTS. On a Retina display the PNG comes back at 2x those
         # points. Nothing here tries to predict that: act_shot measures the file.
+        """Screenshot one window to a PNG at out, scaled down to max_width when set."""
         r = run(["screencapture", "-x", "-o",
                  f"-R{win.x},{win.y},{win.w},{win.h}", out])
         if r.returncode != 0:
@@ -714,6 +716,7 @@ else:
     PASTE_CHORD = "ctrl+v"
 
     def capture(win: Win, out: str, max_width: int) -> None:
+        """Screenshot one window to a PNG at out, scaled down to max_width when set."""
         if m := shutil.which("maim"):
             r = run([m, "-i", win.id, out])
         elif i := shutil.which("import"):

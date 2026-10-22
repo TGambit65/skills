@@ -155,6 +155,7 @@ class Factory:
         return p.read_text(encoding="utf-8", errors="replace") if p.exists() else ""
 
     def write(self, rel: str, text: str):
+        """Write text to a path relative to the fixture root, with LF line endings."""
         p = self.root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         write_lf(p, text)
@@ -675,6 +676,7 @@ def test_untitled_issue_does_not_kill_the_runner(f: Factory):
       "state change, no ledger, no notification, and the orchestrator discarded the "
       "runner's exit status so nothing downstream noticed either")
 def test_unguarded_failure_escalates_loudly(f: Factory):
+    """A command failing after the ERR trap is installed must escalate, not exit silently."""
     f.issue("0001-widget", state="accepted")
     # Inject a failing command at top level, after the ERR trap is installed.
     p = f.root / "factory" / "run-workflow.sh"
@@ -696,6 +698,7 @@ def test_unguarded_failure_escalates_loudly(f: Factory):
 @test("the orchestrator dispatches the runner into a background subshell and never read "
       "its exit status, so a runner fault left no trace the dispatcher could see")
 def test_orchestrator_records_runner_faults(f: Factory):
+    """A runner that dies before its ERR trap must still be recorded by the dispatcher's backstop."""
     f.issue("0001-widget", state="accepted")
     p = f.root / "factory" / "run-workflow.sh"
     s = p.read_text(encoding="utf-8")
@@ -718,6 +721,7 @@ def test_orchestrator_records_runner_faults(f: Factory):
       "unguarded failure there loses the whole tick -- the reaper, the sweep and every "
       "dispatch after it -- and no exit code goes anywhere anyone looks")
 def test_dispatcher_fault_is_loud(f: Factory):
+    """A fault inside the dispatcher itself must be reported, not swallowed."""
     p = f.root / "factory" / "orchestrator.sh"
     s = p.read_text(encoding="utf-8")
     needle = "# 1. THE STOP BUTTON"
@@ -894,6 +898,7 @@ def test_stop_file_halts_the_dispatcher(f: Factory):
 
 @test("autonomy 0 is how you pause a factory: nothing may dispatch")
 def test_autonomy_zero_dispatches_nothing(f: Factory):
+    """At autonomy level 0 the dispatcher hands out no work."""
     rc, out = f.tick(env={"FACTORY_AUTONOMY": "0"})
     hasnt(out, "DISPATCH ", "work was dispatched at autonomy 0")
 
@@ -915,6 +920,7 @@ def _run_record(f: Factory, usd, hhmmss="010000", wf="implement-issue"):
       "lap after lap, each under budget, until the invoice. At or over "
       "FACTORY_MAX_DAILY_USD the dispatcher must refuse, say so, and tell a human ONCE")
 def test_daily_cap_halts_dispatch_and_notifies_once(f: Factory):
+    """Over the daily cap, nothing is dispatched and the human is notified once per day."""
     f.clear_signals()
     _run_record(f, 30.0, "010000")
     _run_record(f, 25.0, "020000")
@@ -933,6 +939,7 @@ def test_daily_cap_halts_dispatch_and_notifies_once(f: Factory):
 @test("a day UNDER the cap must dispatch normally, and a cap of 0 must switch the guard "
       "off - a guard that refuses everything is indistinguishable from a wedge")
 def test_daily_cap_under_budget_dispatches(f: Factory):
+    """Under the daily cap (or with the cap off), work is dispatched as normal."""
     _run_record(f, 10.0)
     rc, out = f.tick(env={"FACTORY_MAX_DAILY_USD": "50"})
     has(out, "DAILY_SPEND", "the day's spend was not reported")
@@ -949,6 +956,7 @@ def test_daily_cap_under_budget_dispatches(f: Factory):
 @test("a run whose agent reported NO cost figure must be counted as unmeasured and said "
       "so, not silently read as zero spend")
 def test_daily_cap_reports_unmeasured_runs(f: Factory):
+    """A run with no recorded cost is counted as unmeasured, not as free."""
     _run_record(f, None)
     rc, out = f.tick(env={"FACTORY_MAX_DAILY_USD": "50"})
     has(out, "unmeasured=1", "an uncosted run was not reported as unmeasured")
@@ -1309,6 +1317,7 @@ def test_harness_refuses_a_zero_test_suite(f: Factory):
 @test("an unconfigured rung must be skipped LOUDLY -- a silent skip is indistinguishable "
       "from a pass, which is the whole failure this harness exists to prevent")
 def test_harness_skips_loudly(f: Factory):
+    """An unconfigured harness rung reports that it skipped instead of passing silently."""
     install_harness(f, static="")
     rc, out = ci(f)
     has(out, "STATIC_SKIPPED", "an unconfigured rung passed in silence")
@@ -1317,6 +1326,7 @@ def test_harness_skips_loudly(f: Factory):
 @test("a failing rung must be NAMED: the last line of output is usually several rungs "
       "downstream of the cause, and misnaming your own failure is most of the cost")
 def test_harness_names_the_failing_rung(f: Factory):
+    """A failing harness rung fails the gate, and the gate names which rung it was."""
     install_harness(f, static="python harness/_boom.py")
     write_lf((f.root / "harness" / "_boom.py"), "raise SystemExit(1)\n")
     rc, out = ci(f)
@@ -1452,6 +1462,7 @@ class Mutation:
     """
 
     def __init__(self, ident, path, find, replace, why, expect, scope="factory"):
+        """One defect: the text to find in path, its replacement, and the test expected to catch it."""
         self.id, self.path, self.find, self.replace = ident, path, find, replace
         self.why, self.expect, self.scope = why, expect, scope
 
@@ -1583,6 +1594,7 @@ MUTATIONS = [
 
 
 def run_mutations(tmp: Path, only: str | None) -> int:
+    """Restore each historical defect in turn; return the number the suite failed to catch."""
     print()
     print("=" * 78)
     print("MUTATION CHECK -- restore each historical defect, the suite must go RED")
@@ -1656,6 +1668,7 @@ def run_mutations(tmp: Path, only: str | None) -> int:
 
 
 def main() -> int:
+    """Run the runner test suite (optionally filtered, or in mutation mode) and return the exit code."""
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--only", help="substring filter on the test name or the defect")
