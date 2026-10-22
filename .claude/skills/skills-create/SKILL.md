@@ -1,6 +1,6 @@
 ---
 name: skills-create
-description: Author a new Claude Code skill the house way, or refactor a fat skill into a lean SKILL.md + references/. Use when you want to "create a skill", "write a new skill", "turn a prompt or command into a skill", "split a skill into references", "trim a SKILL.md", or invoke /skills-create. The meta-skill — a skill that builds skills.
+description: Authors a new Claude Code skill the house way, or refactors a fat one into a lean SKILL.md + references/. Use when the user wants to "create a skill", "write a new skill", "turn a prompt or command into a skill", "split a skill into references", "trim a SKILL.md", or invokes /skills-create.
 argument-hint: "[create <name> | refactor <path/to/SKILL.md>]  (blank = ask which)"
 ---
 
@@ -61,8 +61,9 @@ Both modes obey the same craft rules → read `references/skill-standards.md` fi
 2. **Plan the resources** — what repeats → `scripts/`; what informs the work → `references/`; what shapes the
    output → `templates/`; what you don't own / changes upstream → cite a path/URL; what only exists at runtime →
    gather it (ask the user, read git/codebase).
-3. **Scaffold** — copy `templates/SKILL.template.md` to `.claude/skills/<name>/SKILL.md`; add `references/` /
-   `templates/` only as the plan needs.
+3. **Scaffold** — copy this skill's `templates/SKILL.template.md` to `.claude/skills/<name>/SKILL.md` (the
+   template lives beside this file, wherever this skill is installed); add `references/` / `templates/` only as
+   the plan needs.
 4. **Write the spine first** — third-person trigger-rich `description`; imperative, lean body; push detail to
    references. Get it *triggering* before you write the references.
 5. **Validate & iterate** — `references/validation.md` (checklist → trigger test → run it for real).

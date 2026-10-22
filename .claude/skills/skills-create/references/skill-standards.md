@@ -53,30 +53,43 @@ changes upstream; gather at runtime what only exists in the moment.
 
 | Field | Required | Constraint | Notes |
 |-------|----------|------------|-------|
-| `name` | yes | ≤64 chars, lowercase-hyphen, **matches the directory** | the directory name is what becomes `/the-command` |
-| `description` | yes | ≤1024 chars, third person, non-empty | the trigger — WHAT it does + WHEN to use it + literal user phrases |
+| `name` | yes (spec) | ≤64 chars, lowercase-hyphen, **matches the directory** | the directory name is what becomes `/the-command`; Claude Code defaults to it if `name` is omitted |
+| `description` | yes | ≤1024 chars (Agent Skills spec), third person, non-empty | the trigger — WHAT it does + WHEN to use it + literal user phrases. Claude Code shows at most 1,536 chars of `description` + `when_to_use` in its listing, and drops whole descriptions when the listing overflows — put the key use case first |
 | `argument-hint` | no | string | autocomplete hint, e.g. `<path/to/plan.md> [--base <branch>]` |
-| `allowed-tools` | no | string/list | tools usable without a prompt while active |
+| `arguments` | no | YAML list or space-separated string | named positional args; `arguments: [issue, branch]` makes `$issue` / `$branch` expand in the body. Every declared name must be used as `$name` |
+| `allowed-tools` | no | string/list | tools usable without a prompt during the turn that invokes the skill |
+| `disallowed-tools` | no | string/list | tools removed while the skill is active (e.g. `AskUserQuestion` for a background loop) |
 | `model` / `effort` | no | model / level | per-skill execution override |
-| `disable-model-invocation` | no | bool | `true` = user-only (no auto-invoke) |
+| `disable-model-invocation` | no | bool | `true` = user-only (no auto-invoke); the description leaves the always-on listing |
 | `user-invocable` | no | bool | `false` = agent-only, hidden from `/` |
+| `context: fork` + `agent` | no | — | run the skill in a forked subagent, optionally of a named type |
 
 **Invocation control is a deliberate decision, and it depends on context.** A personal read/plan skill can stay
 fully open (omit both flags). But a **distributed** skill (shipped in a plugin) that auto-invokes a
 **side-effecting** action — commits, pushes, deletes — can surprise other people's agents; for those, set
 `disable-model-invocation: true` in the distributed copy. Match the openness to who runs it and what it does.
 
-Other optional fields exist (`when_to_use`, `disallowed-tools`, `paths`, `hooks`, `context: fork`, `shell`) —
-reach for them only when a skill needs one, and **confirm against the current Claude Code skills docs** (the field
-set evolves).
+Other optional fields exist (`when_to_use`, `paths`, `hooks`, `shell`, `background`, `metadata`, `license`,
+`compatibility`) — reach for them only when a skill needs one, and **confirm against the current Claude Code
+skills docs** (https://code.claude.com/docs/en/skills — the field set evolves; `hidden`, for example, is not a
+documented field — use `user-invocable: false`). Only `name`, `description`, `license`, `compatibility`,
+`metadata`, `allowed-tools` are portable to claude.ai uploads and the Skills API; the rest are Claude Code
+extensions that other tools ignore.
+
+**Paths inside the body.** Point at bundled files relatively (`references/x.md`); for a path the agent must
+*execute* (a script, a template to copy), use `${CLAUDE_SKILL_DIR}/...` — Claude Code substitutes it with the
+skill's own directory at any install level. Never hardcode `.claude/skills/<this-skill>/...`: that path does not
+exist under a plugin or global install.
 
 ## Progressive disclosure (the core mechanic)
 
 Three load levels — design every skill around them:
 
 1. **Metadata** (`name` + `description`) — always in context. ~100 words. The trigger budget.
-2. **Body** (`SKILL.md`) — loaded when the skill triggers. Target **1,500–2,000 words**, hard ceiling ~5k. Paid
-   for on every use.
+2. **Body** (`SKILL.md`) — loaded when the skill triggers and stays in context for the rest of the session, so
+   every line is a recurring cost. Keep it to what the run needs: the docs say under 500 lines; most skills in
+   this pack are 200–900 words. Investigate anything over ~2,000 words — it almost always has a `references/`
+   file hiding in it.
 3. **Resources** (`references/`, `templates/`, `scripts/`) — loaded only when the agent reaches for them.
    Effectively unlimited; scripts cost ~zero context (only their output enters the conversation).
 

@@ -1,11 +1,13 @@
 ---
 name: system-execution-report
-description: Generates a structured implementation report reflecting on a just-completed feature — what was done, divergences, challenges. Use right after finishing an implementation, as the input to a system review.
+description: Reflects on a just-finished implementation: what diverged from the plan and why, and what was skipped. Extends piv-implement's report if one exists, otherwise writes its own. Use as the input to system-evolution-review.
 ---
 
 # Execution Report
 
-Review and deeply analyze the implementation you just completed.
+Review and deeply analyze the implementation you just completed. This is the **standalone / retrospective**
+variant of the report: `piv-implement` already writes a short implementation report at the end of its run, so
+the first job here is to find out whether one exists and build on it rather than write a second one.
 
 ## Context
 
@@ -16,23 +18,35 @@ You have just finished implementing a feature. Before moving on, reflect on:
 - What challenges you encountered
 - What diverged and why
 
-## Generate Report
+## Where the report goes
 
-Save to: `.claude/execution-reports/[feature-name].md`
+1. Look for `.claude/reports/<slug>-report.md` (what `piv-implement` writes, where `<slug>` is the plan's slug).
+   - **Exists:** extend that file in place. Keep its existing sections; append only the sections below that it
+     does not already have, and reconcile anything it already covers (its `Deviations from the plan` is the same
+     information as `Divergences from Plan`; expand it to the structured form rather than duplicating it).
+   - **Does not exist:** write a new file to `.claude/execution-reports/[feature-name].md`.
+2. Either way, print the final path. `system-evolution-review` reads from both locations.
+
+## Report sections
+
+Fill every bracket from evidence in this session (the plan file, the diff, the commands you actually ran). Do
+not fill a result from memory: a check you did not run in this session is `NOT RUN`, not a guess.
 
 ### Meta Information
 
 - Plan file: [path to plan that guided this implementation]
 - Files added: [list with paths]
 - Files modified: [list with paths]
-- Lines changed: +X -Y
+- Lines changed: +X -Y (from `git diff --stat` against the base branch)
 
 ### Validation Results
 
-- Syntax & Linting: ✓/✗ [details if failed]
-- Type Checking: ✓/✗ [details if failed]
-- Unit Tests: ✓/✗ [X passed, Y failed]
-- Integration Tests: ✓/✗ [X passed, Y failed]
+One of `PASS | FAIL | NOT RUN` per line, with the command used. Never record a pass you did not observe.
+
+- Syntax & Linting: [PASS | FAIL | NOT RUN] — `[command]` [details if failed]
+- Type Checking: [PASS | FAIL | NOT RUN] — `[command]` [details if failed]
+- Unit Tests: [PASS | FAIL | NOT RUN] — `[command]` [X passed, Y failed]
+- Integration Tests: [PASS | FAIL | NOT RUN] — `[command]` [X passed, Y failed]
 
 ### What Went Well
 
@@ -56,6 +70,8 @@ For each divergence, document:
 - Actual: [what was implemented instead]
 - Reason: [why this divergence occurred]
 - Type: [Better approach found | Plan assumption wrong | Security concern | Performance issue | Other]
+
+Write "none" if the implementation followed the plan.
 
 ### Skipped Items
 

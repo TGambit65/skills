@@ -1,7 +1,11 @@
 ---
 name: <skill-name>
-description: <What it does, one phrase>. Use when the user wants to "<trigger 1>", "<trigger 2>", "<trigger 3>", or invokes /<skill-name>.
-argument-hint: <optional: expected args, e.g. <path> [--flag]>
+description: <What it does, one phrase, third person>. Use when the user wants to "<trigger 1>", "<trigger 2>", "<trigger 3>", or invokes /<skill-name>.
+argument-hint: "<optional: expected args, e.g. <path> [--flag]>"
+# arguments: [first, second]        # optional: named positional args, used in the body as $first / $second
+# allowed-tools: Bash(git *) Read    # optional: tools pre-approved for the turn that invokes this skill
+# disable-model-invocation: true    # optional: user-only; set for a distributed, side-effecting skill
+# user-invocable: false             # optional: agent-only, hidden from the / menu
 ---
 
 # <Skill Title>
@@ -26,11 +30,17 @@ argument-hint: <optional: expected args, e.g. <path> [--flag]>
 ## Resources
 - `references/<x>.md` — <when to read it>
 - `templates/<output-format>.md` — <the required output shape>
-- `scripts/<y>.py` — <what it does; run it, don't read it>
+- `${CLAUDE_SKILL_DIR}/scripts/<y>.py` — <what it does; run it, don't read it>
 
 <!-- Authoring reminders (delete before shipping):
-- description: third person + literal trigger phrases + /name. ≤1024 chars.
-- body: imperative, lean (1,500–2,000 words). Detail → references/. Output shapes → templates/.
+- frontmatter: name ≤64 chars = directory name; description ≤1024 chars, third person + literal trigger phrases + /name,
+  key use case first. Delete the commented optional fields you don't use (YAML comments are harmless but noisy).
+  Field set per https://code.claude.com/docs/en/skills; only name/description/license/compatibility/metadata/
+  allowed-tools are portable to claude.ai uploads.
+- body: imperative, lean (under 500 lines; most skills 200–900 words). Detail → references/. Output shapes → templates/.
+- every `arguments:` entry is used as $name in the body; otherwise read $ARGUMENTS.
+- Claude-only tools (AskUserQuestion, Task) get a fallback in the same sentence.
+- paths: bundled files relatively; executables via ${CLAUDE_SKILL_DIR}; never `.claude/skills/<other-skill>/...`.
 - match the structure to the skill TYPE; don't force a workflow shape onto a knowledge skill.
 - context can be bundled, external (a path/URL the body cites), or gathered at runtime — pick per ownership/volatility.
 - invocation: omit user-invocable/disable-model-invocation for an open read/plan skill; set disable-model-invocation
