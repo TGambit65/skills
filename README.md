@@ -8,7 +8,7 @@ A skill is a folder with a `SKILL.md` in it: a name, a description of when to us
 should follow. Your agent loads the description at startup and pulls in the full skill only when the work matches.
 That's the whole idea, and it's why skills scale where a 2,000-line `CLAUDE.md` doesn't.
 
-These 35 skills are the AI Layer from my [Agentic Coding course](https://dynamous.ai). They're built around one
+These 36 skills are the AI Layer from my [Agentic Coding course](https://dynamous.ai). They're built around one
 loop I run on nearly every ticket:
 
 **prime → plan → implement → validate → review → commit → PR**
@@ -31,11 +31,11 @@ Run these two commands inside Claude Code:
 /plugin install skills@cole-medin
 ```
 
-That's it. All 35 skills, managed and read-only, and `/plugin marketplace update` pulls new ones as I add them.
+That's it. All 36 skills, managed and read-only, and `/plugin marketplace update` pulls new ones as I add them.
 Plugin skills are namespaced, so you invoke them as `/skills:piv-implement`.
 
-The whole set costs roughly 4,400 tokens of always-on context (just the descriptions; the bodies load only when a
-skill fires). Run `claude plugin details skills` to see the per-skill breakdown, and disable the plugin any
+The whole set costs roughly 3,000 tokens of always-on context (just the descriptions; the bodies load only when a
+skill fires). `python3 tools/check_contracts.py --tokens` prints the per-skill budget. Run `claude plugin details skills` to see the per-skill breakdown, and disable the plugin any
 time with `/plugin`.
 
 > **If that first command fails with `Permission denied (publickey)`:** the `owner/repo` shorthand prefers SSH,
@@ -138,12 +138,13 @@ For the last two, restart your session (or run `/skills`) and they'll show up.
 | `system-execution-report` | Reflects on a just-finished implementation: what diverged from the plan |
 | `system-evolution-review` | Finds the bugs in your *process*, not your code |
 | `second-brain-audit` | Finds facts in your notes that quietly stopped being true, and restructures so they stop |
+| `second-brain-fix` | Works through an audit's findings in batches, behind a backup gate, and updates the findings file as it goes |
 
 **Autonomy: hand the whole loop over**
 
 | Skill | What it does |
 |---|---|
-| `build-dark-factory` | Takes a PRD and builds a repo around it that ships validated code with nobody at the keyboard. All five components, in construction order, plus a deterministic audit of what you built. It encodes the AI coding process you already run rather than replacing it, and it deliberately does not write the PRD: bring one, or make one with `plan-create-prd` first |
+| `build-dark-factory` | Takes a PRD and builds a repo around it that ships validated code with nobody at the keyboard. All five components, in construction order, plus a deterministic audit of what you built. It encodes the AI coding process you already run rather than replacing it, and it deliberately does not write the PRD: bring one, or make one with `plan-create-prd` first. The runner it builds is bash (Git Bash on Windows); default autonomy is level 2, auto-merge is an explicit opt-in |
 
 **Keeping up: a signal engine**
 
@@ -190,9 +191,11 @@ deterministic code that fires on a lifecycle event whether the model remembers o
 
 > A rule *asks* the agent to behave. A hook **guarantees** it.
 
-Six copy-in hooks live in [`hooks/`](hooks/) with their own README: block every route to your secrets, refuse
-`rm -rf`, enforce declared file coupling, log every tool call, inject today's git state at session start, refuse
-to let the agent finish while the tests are red, and ping you when it does finish.
+Six copy-in hooks live in [`hooks/`](hooks/) with their own README: refuse the routes to your secrets a
+deny-list can see (and say plainly which ones it cannot), refuse `rm -rf` and the other irreversible deletes,
+enforce declared file coupling, log every tool call, inject today's git state at session start, refuse to let
+the agent finish while the tests are red, and ping you when it does finish. A 400-case corpus
+(`hooks/_test_hooks.py`) proves each one still does what it says.
 
 ```bash
 mkdir -p .claude/hooks
@@ -201,8 +204,10 @@ cp hooks/settings.json.example .claude/settings.json   # or merge the "hooks" bl
 ```
 
 Unlike a skill, **a hook does something the moment it exists** - so read them before you wire them, set
-`TEST_COMMAND` in the stop hook, and check both directions (exit 0 on green, exit 2 on red) before you trust it.
-[`hooks/README.md`](hooks/README.md) covers the five failure modes that waste an afternoon, the venv trap chief
+`TEST_COMMAND` in the stop hook (the env var wins over the constant), and check both directions (exit 0 on
+green, exit 2 on red) before you trust it. The secrets hook is a speed bump; the wall is Claude Code's own
+`permissions.deny` and the sandbox, and `hooks/settings.json.example` ships both side by side.
+[`hooks/README.md`](hooks/README.md) covers the seven failure modes that waste an afternoon, the venv trap chief
 among them.
 
 To build one of your own without writing Python, describe it to the `hooks-create` skill.
@@ -222,6 +227,19 @@ it, the skill still works, it just does the review inline.
 
 Everything else runs as-is. But read them anyway. A skill you haven't read is just a longer prompt you don't
 control.
+
+## Checks
+
+Every contract between skills is mechanical, and every bundled script has a test:
+
+```bash
+python3 tools/test_all.py          # contract checker + every bundled test suite + the hooks corpus
+python3 tools/check_contracts.py   # just the cross-skill contracts (paths, sections, names, README, manifests)
+```
+
+`check_contracts.py` fails when a skill reads a path or section another skill no longer writes, hardcodes a
+`.claude/skills/...` path (which does not exist under a plugin install), runs a load-time command with an unfilled
+placeholder, or ships a report template with the result already typed in. Run it before sending a change.
 
 ## License
 
