@@ -57,6 +57,7 @@ def _git(args, cwd) -> str:
             ["git"] + args,
             capture_output=True,
             text=True,
+            errors="replace",   # one odd byte in a filename must not blank the whole section
             cwd=str(cwd),
             timeout=10,
         )
