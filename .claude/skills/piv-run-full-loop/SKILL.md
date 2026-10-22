@@ -1,6 +1,6 @@
 ---
 name: piv-run-full-loop
-description: Autonomously develops a complete feature from priming through planning, execution, and commit by chaining the four core PIV-loop skills. Use when you want a full hands-off feature build from a single description.
+description: Runs the whole PIV loop unattended from one feature description: prime, plan, implement, validate, review, commit. Use for a hands-off build.
 argument-hint: [feature-description]
 ---
 
@@ -8,69 +8,91 @@ argument-hint: [feature-description]
 
 **Feature Description**: $ARGUMENTS
 
-This skill chains the 4 core PIV-loop skills for autonomous feature development.
+Chains the core PIV-loop skills in order. Invoke each **by name** as your agent invokes skills (`/piv-implement
+<args>` in Claude Code, `/skills:piv-implement` under a plugin install) — never by file path; skill locations
+differ between project, global and plugin installs.
+
+## Non-interactive contract
+
+The loop runs unattended, so no step may stop and wait for a human. Tell every skill it is running
+**non-interactively, invoked by piv-run-full-loop**, and hold it to this:
+
+- **No questions.** Where a skill would normally ask (the clarifying GATE in `piv-plan-implementation`), it
+  records each open item as an `Assumed — <assumption>, confirm before execution` line and continues. A silent
+  guess is a defect; every assumption appears in the plan and again in the final summary.
+- **A red step stops the loop before commit.** Validation FAIL, `piv-implement` Status: PARTIAL (retry cap or
+  STOP), or Critical/High review findings → go straight to the Final Summary with where and why. Never commit
+  work that is red or unreviewed.
+- **Bounded retries only.** The single re-entry allowed is in Step 4. Never loop a step until it goes green.
+- **Local only.** The loop ends at a local commit: no push, force-push, rebase, reset or branch deletion, and
+  never weaken a test or check to get green.
 
 ---
 
-## Step 1: Prime - Load Codebase Context
+## Step 1: Prime — load codebase context
 
-Execute the priming workflow to understand the codebase.
+Run the `prime-codebase` skill.
 
-Run the `prime-codebase` skill (`.claude/skills/prime-codebase/SKILL.md`).
+## Step 2: Plan — create the implementation plan
 
----
+Run the `piv-plan-implementation` skill, non-interactively, with the feature description: **$ARGUMENTS**.
 
-## Step 2: Planning - Create Implementation Plan
+Record the plan path it reports — `.claude/plans/<feature-name>.md` — and every `Assumed — ` line in its
+`OPEN QUESTIONS / ASSUMPTIONS` section. `<feature-name>` is the plan's slug; the next steps key off it.
 
-Create a detailed implementation plan for the feature.
+## Step 3: Implement — build from the plan
 
-Run the `piv-plan-implementation` skill (`.claude/skills/piv-plan-implementation/SKILL.md`) with the feature description: **$ARGUMENTS**.
+Run the `piv-implement` skill with the plan path from Step 2. It writes
+`.claude/reports/<feature-name>-report.md`; read its **Status**: `COMPLETE` → continue, `PARTIAL` → stop the loop.
 
-**IMPORTANT**: Note the feature name (and plan file path) that the planning step creates. You'll need it for the next step.
+## Step 4: Validate — run the project suite
 
----
+Run the `piv-validate` skill. Record each check as PASS / FAIL / NOT RUN and the overall verdict.
 
-## Step 3: Execute - Implement the Feature
+On an overall FAIL, apply `piv-implement`'s step-4 fix rules to the failing check **once** (fix the code, never
+the check; its 3-attempt cap applies; append the outcome to the implementation report), then re-run
+`piv-validate`. Still FAIL → stop the loop.
 
-Implement the feature from the plan document.
+## Step 5: Review — pre-commit technical review
 
-Run the `piv-implement` skill (`.claude/skills/piv-implement/SKILL.md`) with the plan file path: `.claude/plans/[feature-name].md`.
+Run the `piv-review-changes` skill. It writes `.claude/code-reviews/<name>.md`. Any **Critical or High** finding
+→ stop the loop and point at the review file (the human's next step is `piv-fix-review-findings`). Medium/Low
+findings go in the summary and do not block the commit.
 
-(Use the feature name from Step 2.)
+## Step 6: Commit — save the work
 
----
-
-## Step 4: Commit - Save Changes
-
-Create a git commit for all changes.
-
-Run the `piv-commit` skill (`.claude/skills/piv-commit/SKILL.md`).
+Reached only when Step 4 is PASS and Step 5 has no Critical/High finding. Run the `piv-commit` skill.
 
 ---
 
 ## Final Summary
 
-After completing all 4 steps, provide:
+Fill from actual results. A step that did not run is `NOT RUN`; leave a field blank rather than invent a value.
 
-### Feature Implementation Complete
+### Feature Implementation Run
 
 **Original Request**: $ARGUMENTS
 
-**Feature Name**: [feature-name from planning step]
+**Feature Name**: <feature-name from Step 2>
 
-**Steps Executed:**
-1. ✅ Prime - Codebase context loaded
-2. ✅ Planning - Plan created at `.claude/plans/[feature-name].md`
-3. ✅ Execute - Feature implemented and validated
-4. ✅ Commit - Changes committed to git
+**Steps executed** (each PASS / FAIL / NOT RUN):
+
+1. Prime: ___
+2. Plan: ___ — `.claude/plans/<feature-name>.md`
+3. Implement: ___ — `.claude/reports/<feature-name>-report.md`, Status: ___
+4. Validate: ___ — per check: ___
+5. Review: ___ — `.claude/code-reviews/<name>.md`, findings: Critical _ / High _ / Medium _ / Low _
+6. Commit: ___ — hash: ___ (or "not committed: <reason>")
+
+**Stopped early?** <step and reason, or "no">
+
+**Assumptions to confirm**: <copy every `Assumed — ` line from the plan, or "none">
 
 **Outputs:**
-- Plan document: `.claude/plans/[feature-name].md`
-- Files created/modified: [list]
-- Tests added: [list]
-- Commit hash: [hash]
+- Files created/modified: <list>
+- Tests added: <list>
 
-**Next Steps:**
-- Push to remote: `git push`
-- Create pull request (if applicable)
-- Continue with next feature
+**Next steps:**
+- Confirm the assumptions above; amend the plan's `AMENDMENTS` section if any was wrong
+- If stopped: fix what stopped it (`piv-fix-review-findings` for review findings), then `piv-validate` → `piv-commit`
+- If committed: `piv-create-pr` to push and open the PR

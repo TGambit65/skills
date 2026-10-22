@@ -1,6 +1,6 @@
 ---
 name: piv-plan-implementation
-description: Creates a comprehensive, context-rich implementation plan through deep codebase analysis, a short clarifying interview, and external research. Accepts a tracker ticket (a Jira/Linear/GitHub key or URL, fetched from the tracker) or a free-form feature request. Use when you have a ticket or feature and need a one-pass-ready plan before writing any code.
+description: Turns a ticket (Jira/Linear/GitHub key or URL, or docs/tickets/) or a free-form feature request into a one-pass-ready implementation plan via codebase analysis, a clarifying interview and research. Use before writing code.
 argument-hint: "[ticket key/URL (fetched from your tracker), or a free-form feature description]"
 ---
 
@@ -10,49 +10,51 @@ argument-hint: "[ticket key/URL (fetched from your tracker), or a free-form feat
 
 ## Resolve the input first
 
-`$ARGUMENTS` is either a **tracker ticket** (a key like `ACC-30`, or a Jira / Linear / GitHub issue URL) or a
-**free-form feature description**. Tell them apart and handle each:
+`$ARGUMENTS` is one of three things. Tell them apart and handle each:
 
-- **A ticket** (a key such as `ABC-123`, or an issue URL): **fetch it from the tracker before you plan** (Jira via
-  the Atlassian MCP, GitHub via `gh issue view`, etc.). Read its summary, acceptance criteria, and per-ticket
-  context. Then **follow its links up to the epic and the epic's linked architecture page** (Confluence via the
-  Atlassian MCP) and inherit those decisions (see "Inherit, don't re-decide" below). Never plan from the bare key;
-  the ticket body plus its epic and architecture are the real input.
-- **A free-form description**: plan directly from it (greenfield or ad-hoc), asking clarifying questions as needed.
+- **A tracker ticket** (a key such as `ABC-123`, or a Jira / Linear / GitHub issue URL): **fetch it before you
+  plan** (Jira via the Atlassian MCP, GitHub via `gh issue view`, etc.). Read its summary, acceptance criteria,
+  and per-ticket context. Then **follow its links up to the epic and the epic's linked architecture page**
+  (Confluence via the Atlassian MCP) and inherit those decisions (see "Inherit, don't re-decide"). Never plan
+  from the bare key; the ticket body plus its epic and architecture are the real input.
+- **A local ticket** from `piv-slice-epic` — a `TICKET-n` in `docs/tickets/<epic-slug>.md`: read that ticket's
+  section, the epic summary at the top of the file, and its `Depends on:` line. Treat it like a tracker ticket.
+- **A free-form description**: plan directly from it (greenfield or ad-hoc), asking clarifying questions as
+  needed.
 
 ## Mission
 
-Transform a feature request into a **comprehensive implementation plan** through systematic codebase analysis, external research, and strategic planning.
+Produce a **context-rich implementation plan** — we do NOT write code in this phase. Context is King: the plan
+must contain ALL information needed for implementation (patterns, mandatory reading, documentation, validation
+commands) so the execution agent succeeds on the first attempt.
 
-**Core Principle**: We do NOT write code in this phase. Our goal is to create a context-rich implementation plan that enables one-pass implementation success for ai agents.
+**Inherit, don't re-decide**: This is a **per-ticket** plan. If the ticket belongs to an epic that already has
+architecture decisions — a **linked architecture page** (e.g. a Confluence page from the `plan-architecture`
+skill, reached from the ticket's epic), an `## Architecture` / `## Engineering` section on the epic, or a local
+`architecture.md` / `engineering-plan.md` — **read it first** and treat its cross-cutting calls (stack & versions,
+data model, security boundaries, the seams new code plugs into) as **already decided**. Plan only what's left at
+the ticket level: the specific files, the local patterns to mirror, the tests. If a ticket genuinely needs to
+break an epic-level decision, flag it in Open Questions rather than silently diverging.
 
-**Key Philosophy**: Context is King. The plan must contain ALL information needed for implementation - patterns, mandatory reading, documentation, validation commands - so the execution agent succeeds on the first attempt.
-
-**Inherit, don't re-decide**: This is a **per-ticket** plan. If the ticket belongs to an epic that already has architecture decisions — a **linked architecture page** (e.g. a Confluence page from the `plan-architecture` skill, reached from the ticket's epic), an `## Architecture` / `## Engineering` section on the epic, or a local `architecture.md` / `engineering-plan.md` — **read it first** and treat its cross-cutting calls (stack & versions, data model, security boundaries, the seams new code plugs into) as **already decided**. Inherit them; don't reopen them. Plan only what's left at the ticket level: the specific files, the local patterns to mirror, the tests. If a ticket genuinely needs to break an epic-level decision, flag it in Open Questions rather than silently diverging.
+**Non-interactive mode**: the default is interactive — Phase 2 has a hard GATE. If the caller says the run is
+unattended (e.g. invoked by `piv-run-full-loop`), the GATE does not stop; see "If they decline" in Phase 2 for
+what happens to every open question instead. Never guess silently in either mode.
 
 ## Planning Process
 
-### Phase 1: Feature Understanding
+Use subagents and parallel analysis where they help (Phases 2 and 3 especially).
 
-**Deep Feature Analysis:**
+### Phase 1: Feature Understanding
 
 - Extract the core problem being solved
 - Identify user value and business impact
-- Determine feature type: New Capability/Enhancement/Refactor/Bug Fix
-- Assess complexity: Low/Medium/High
+- Determine feature type: New Capability / Enhancement / Refactor / Bug Fix
+- Assess complexity: Low / Medium / High
 - Map affected systems and components
-
-**Create User Story Format Or Refine If Story Was Provided By The User:**
-
-```
-As a <type of user>
-I want to <action/goal>
-So that <benefit/value>
-```
+- Write the user story (`As a <type of user> / I want to <action/goal> / So that <benefit/value>`), or refine the
+  one the user provided
 
 ### Phase 2: Codebase Intelligence Gathering
-
-**Use specialized agents and parallel analysis:**
 
 **1. Project Structure Analysis**
 
@@ -62,14 +64,11 @@ So that <benefit/value>
 - Locate configuration files (pyproject.toml, package.json, etc.)
 - Find environment setup and build processes
 
-**2. Pattern Recognition** (Use specialized subagents when beneficial)
+**2. Pattern Recognition**
 
 - Search for similar implementations in codebase
-- Identify coding conventions:
-  - Naming patterns (CamelCase, snake_case, kebab-case)
-  - File organization and module structure
-  - Error handling approaches
-  - Logging patterns and standards
+- Identify coding conventions: naming (CamelCase, snake_case, kebab-case), file organization and module
+  structure, error handling, logging patterns and standards
 - Extract common patterns for the feature's domain
 - Document anti-patterns to avoid
 - Check CLAUDE.md for project-specific rules and conventions
@@ -120,16 +119,15 @@ same as clearance.
 **Thin answers:** reflect a vague answer back as the concrete choice it leaves open ("'handle errors gracefully'
 — a 4xx with a message, or retry then 503?") and ask once more. Never upgrade a vague answer into a confident plan.
 
-**If they decline** ("just write it"): honour it, but name what you are guessing. Every unanswered item becomes
-an `Assumed — <the assumption>, confirm before execution` line in `OPEN QUESTIONS / ASSUMPTIONS`, and the task it
-affects carries a `**GOTCHA**` naming it. Never guess silently.
+**If they decline** ("just write it"), **or the run is non-interactive**: honour it, but name what you are
+guessing. Post the cluster anyway so it is on the record, take each recommended default, and turn every
+unanswered item into an `Assumed — <the assumption>, confirm before execution` line in
+`OPEN QUESTIONS / ASSUMPTIONS`; the task it affects carries a `**GOTCHA**` naming it. Never guess silently.
 
 **Already settled upstream:** anything the ticket, its epic, or the linked architecture page already answers is
 not open. Inherit it and skip (see "Inherit, don't re-decide").
 
 ### Phase 3: External Research & Documentation
-
-**Use specialized subagents when beneficial for external research:**
 
 **Documentation Gathering:**
 
@@ -146,18 +144,8 @@ not open. Inherit it and skip (see "Inherit, don't re-decide").
 - Identify performance optimization patterns
 - Document security considerations
 
-**Compile Research References:**
-
-```markdown
-## Relevant Documentation
-
-- [Library Official Docs](https://example.com/docs#section)
-  - Specific feature implementation guide
-  - Why: Needed for X functionality
-- [Framework Guide](https://example.com/guide#integration)
-  - Integration patterns section
-  - Why: Shows how to connect components
-```
+Compile what you find in the shape of the plan's `Relevant Documentation` section: link with a section anchor,
+the specific section, and *why* it is needed.
 
 ### Phase 4: Deep Strategic Thinking
 
@@ -180,16 +168,15 @@ not open. Inherit it and skip (see "Inherit, don't re-decide").
 
 ### Phase 5: Plan Structure Generation
 
-**Create comprehensive plan with the following structure:**
-
-Whats below here is a template for you to fill for the implementation agent:
+Fill this template for the implementation agent. Keep every heading (other skills read them); "Template
+guidance" below covers the sections that need more than their placeholder.
 
 ```markdown
 # Feature: <feature-name>
 
-The following plan should be complete, but its important that you validate documentation and codebase patterns and task sanity before you start implementing.
-
-Pay special attention to naming of existing utils types and models. Import from the right files etc.
+The following plan should be complete, but validate documentation, codebase patterns and task sanity before you
+start implementing. Pay special attention to naming of existing utils, types and models — import from the right
+files.
 
 ## Feature Description
 
@@ -203,15 +190,13 @@ So that <benefit/value>
 
 ## Problem Statement
 
-<Clearly define the specific problem or opportunity this feature addresses>
+<The specific problem or opportunity this feature addresses>
 
 ## Solution Statement
 
-<Describe the proposed solution approach and how it solves the problem>
+<The proposed solution approach and how it solves the problem>
 
 ## Out of Scope / Non-Goals
-
-<Explicitly bound the work: what this feature does NOT include. Name the things a reasonable reader might assume are in scope but aren't — this is what stops the agent from gold-plating or solving the wrong problem.>
 
 - Not included: <thing> (defer to <later / separate ticket>)
 - Not changing: <existing behavior to leave alone>
@@ -225,13 +210,11 @@ So that <benefit/value>
 
 ## Related Work
 
-<Links between this plan and the work around it. Distinct from CONTEXT REFERENCES below (which lists files/docs to read for *this* implementation) — this is the plan's place in the larger graph.>
-
-**Implements**: <ticket id / link>   ·   **Epic**: <engineering-plan.md path or epic link — if this ticket inherits an epic's engineering plan (see Mission), record it here>
+**Implements**: <ticket id / link>   ·   **Epic**: <engineering-plan.md path or epic link, if inherited>
 
 **Back-references** (plans this builds on or inherits decisions from):
 
-- `.claude/plans/<prior-plan>.md` - Why: shares the auth seam / reuses the X service
+- `.claude/plans/<prior-plan>.md` - Why: <shares the auth seam / reuses the X service>
 
 **Forward-references** (plans that extend or supersede this — append as follow-ups get created):
 
@@ -243,89 +226,47 @@ So that <benefit/value>
 
 ### Relevant Codebase Files IMPORTANT: YOU MUST READ THESE FILES BEFORE IMPLEMENTING!
 
-<List files with line numbers and relevance>
-
 - `path/to/file.py` (lines 15-45) - Why: Contains pattern for X that we'll mirror
-- `path/to/model.py` (lines 100-120) - Why: Database model structure to follow
 - `path/to/test.py` - Why: Test pattern example
 
 ### New Files to Create
 
 - `path/to/new_service.py` - Service implementation for X functionality
-- `path/to/new_model.py` - Data model for Y resource
 - `tests/path/to/test_new_service.py` - Unit tests for new service
 
 ### Relevant Documentation YOU SHOULD READ THESE BEFORE IMPLEMENTING!
 
-- [Documentation Link 1](https://example.com/doc1#section)
-  - Specific section: Authentication setup
-  - Why: Required for implementing secure endpoints
-- [Documentation Link 2](https://example.com/doc2#integration)
-  - Specific section: Database integration
-  - Why: Shows proper async database patterns
+- [Documentation Link](https://example.com/doc1#section)
+  - Specific section: <e.g. Authentication setup>
+  - Why: <e.g. Required for implementing secure endpoints>
 
 ### Patterns to Follow
 
-<Specific patterns extracted from codebase - include actual code examples from the project>
+<Specific patterns extracted from codebase — include actual code examples from the project>
 
-**Naming Conventions:** (for example)
-
-**Error Handling:** (for example)
-
-**Logging Pattern:** (for example)
-
-**Other Relevant Patterns:** (for example)
+**Naming Conventions:** / **Error Handling:** / **Logging Pattern:** / **Other Relevant Patterns:**
 
 ---
 
 ## IMPLEMENTATION PLAN
 
-Phases run **top to bottom by default** — each assumes the phase above it is done. Where that is NOT the true dependency, make it explicit with a `**Depends on:**` line under the phase header, and a `**Independent of:**` line where two phases don't block each other. Independent phases are candidates to run in **parallel** (e.g. separate worktrees / parallel loops). Only annotate where it changes execution order or unlocks parallelism — skip the obvious sequential case.
-
 ### Phase 1: Foundation
 
-<Describe foundational work needed before main implementation>
-
-**Tasks:**
-
-- Set up base structures (schemas, types, interfaces)
-- Configure necessary dependencies
-- Create foundational utilities or helpers
+<Base structures (schemas, types, interfaces), dependencies, foundational utilities>
 
 ### Phase 2: Core Implementation
 
 **Depends on:** Phase 1 (needs the base schemas/types)
 
-<Describe the main implementation work>
-
-**Tasks:**
-
-- Implement core business logic
-- Create service layer components
-- Add API endpoints or interfaces
-- Implement data models
+<Core business logic, service layer, API endpoints or interfaces, data models>
 
 ### Phase 3: Integration
 
-<Describe how feature integrates with existing functionality>
-
-**Tasks:**
-
-- Connect to existing routers/handlers
-- Register new components
-- Update configuration files
-- Add middleware or interceptors if needed
+<Connect to existing routers/handlers, register components, update configuration, middleware if needed>
 
 ### Phase 4: Testing & Validation
 
-<Describe testing approach>
-
-**Tasks:**
-
-- Implement unit tests for each component
-- Create integration tests for feature workflow
-- Add edge case tests
-- Validate against acceptance criteria
+<Unit tests per component, integration tests for the workflow, edge cases, validation against acceptance criteria>
 
 ---
 
@@ -333,25 +274,14 @@ Phases run **top to bottom by default** — each assumes the phase above it is d
 
 IMPORTANT: Execute every task in order, top to bottom. Each task is atomic and independently testable.
 
-### Task Format Guidelines
-
-Use information-dense keywords for clarity:
-
-- **CREATE**: New files or components
-- **UPDATE**: Modify existing files
-- **ADD**: Insert new functionality into existing code
-- **REMOVE**: Delete deprecated code
-- **REFACTOR**: Restructure without changing behavior
-- **MIRROR**: Copy pattern from elsewhere in codebase
-
 ### {ACTION} {target_file}
 
 - **IMPLEMENT**: {Specific implementation detail}
 - **PATTERN**: {Reference to existing pattern - file:line}
 - **IMPORTS**: {Required imports and dependencies}
-- **GOTCHA**: {Known issues or constraints to avoid}
-- **VALIDATE**: `{executable validation command}`
-- **SATISFIES**: {which acceptance criterion this task advances — e.g. AC #2 — so every task traces to a criterion}
+- **GOTCHA**: {Known issues or constraints to avoid, including any `Assumed —` item this task depends on}
+- **VALIDATE**: `{executable, non-interactive validation command}`
+- **SATISFIES**: {which acceptance criterion this task advances — e.g. AC #2}
 
 <Continue with all tasks in dependency order...>
 
@@ -359,153 +289,150 @@ Use information-dense keywords for clarity:
 
 ## TESTING STRATEGY
 
-<Define testing approach based on project's test framework and patterns discovered during research>
+<Testing approach based on the project's test framework and patterns discovered during research>
 
 ### Unit Tests
 
-<Scope and requirements based on project standards>
-
-Design unit tests with fixtures and assertions following existing testing approaches
+<Scope and requirements per project standards; fixtures and assertions follow the existing approach>
 
 ### Integration Tests
 
-<Scope and requirements based on project standards>
+<Scope and requirements per project standards>
 
 ### Edge Cases
 
-<List specific edge cases that must be tested for this feature>
+<Specific edge cases that must be tested for this feature>
 
 ---
 
 ## VALIDATION COMMANDS
 
-<Define validation commands based on project's tools discovered in Phase 2>
-
-Execute every command to ensure zero regressions and 100% feature correctness.
+<Commands from the project's tools discovered in Phase 2.> Execute every command to ensure zero regressions and
+100% feature correctness.
 
 ### Level 1: Syntax & Style
-
 <Project-specific linting and formatting commands>
-
 ### Level 2: Unit Tests
-
 <Project-specific unit test commands>
-
 ### Level 3: Integration Tests
-
 <Project-specific integration test commands>
-
 ### Level 4: Manual Validation
-
 <Feature-specific manual testing steps - API calls, UI testing, etc.>
-
 ### Level 5: Additional Validation (Optional)
-
 <MCP servers or additional CLI tools if available>
 
 ---
 
 ## ACCEPTANCE CRITERIA
 
-<List specific, measurable criteria that must be met for completion>
+<Specific, measurable, feature-level criteria. Numbered so tasks can cite them in SATISFIES.>
 
-- [ ] Feature implements all specified functionality
-- [ ] All validation commands pass with zero errors
-- [ ] Unit test coverage meets requirements (80%+)
-- [ ] Integration tests verify end-to-end workflows
-- [ ] Code follows project conventions and patterns
-- [ ] No regressions in existing functionality
-- [ ] Documentation is updated (if applicable)
-- [ ] Performance meets requirements (if applicable)
-- [ ] Security considerations addressed (if applicable)
+- [ ] AC #1: <functionality the feature must implement>
+- [ ] AC #2: <...>
 
 ---
 
 ## COMPLETION CHECKLIST
 
-- [ ] All tasks completed in order
-- [ ] Each task validation passed immediately
-- [ ] All validation commands executed successfully
-- [ ] Full test suite passes (unit + integration)
-- [ ] No linting or type checking errors
+- [ ] All tasks completed in order, each task's VALIDATE passed immediately
+- [ ] All validation commands executed successfully — full suite (unit + integration), no lint or type errors
 - [ ] Manual testing confirms feature works
-- [ ] Acceptance criteria all met
-- [ ] Code reviewed for quality and maintainability
+- [ ] Acceptance criteria all met; no regressions in existing functionality
+- [ ] Code follows project conventions; reviewed for quality and maintainability
+- [ ] Unit test coverage meets the project's requirement (<threshold>)
+- [ ] Documentation updated · performance requirements met · security considerations addressed (each if applicable)
 
 ---
 
 ## OPEN QUESTIONS / ASSUMPTIONS
 
-<Surface anything still uncertain instead of silently guessing. List the assumptions this plan makes, and any question that — if answered differently — would change the plan. Flag unresolved critical questions for the user before execution.>
+<Assumptions this plan makes, each as `Assumed — <assumption>, confirm before execution`, and any question that —
+if answered differently — would change the plan.>
 
 ## NOTES (open canvas)
 
-<No fixed shape. Reason freely here: alternatives you weighed and rejected and why, a tradeoff matrix, a sequencing or rollout risk, a data-flow sketch, open threads, links — whatever serves the plan. The sections above template the plan's *shape* so the trifecta and the implementation agent can consume it; this section keeps your *reasoning* unconstrained. Prose, lists, tables, code blocks all welcome.>
+<Your *reasoning*, unconstrained — the sections above template the plan's *shape* so other agents can consume
+it. Alternatives weighed and rejected and why, tradeoff matrix, sequencing or rollout risk, data-flow sketch,
+open threads, links. Prose, lists, tables, code blocks all welcome.>
 
 ## AMENDMENTS
 
-<Append-only history of changes made to this plan AFTER it was first approved/executed. Leave empty at creation; newest entry at the bottom. Each entry: date — what changed and why.>
+<Append-only history of changes made AFTER this plan was first approved/executed; newest at the bottom; empty at
+creation.>
 
 - <ISO date> — <what changed and why, e.g. "scope cut: deferred bulk-import to a follow-up ticket after AC review">
 ```
 
+**Template guidance** (how to fill the sections that need more than their placeholder):
+
+- **Out of Scope / Non-Goals** — bound the work explicitly. Name the things a reasonable reader might assume are
+  in scope but aren't; this is what stops the agent from gold-plating or solving the wrong problem.
+- **Related Work** — the plan's place in the larger graph, distinct from CONTEXT REFERENCES (files/docs to read
+  for *this* implementation). If the ticket inherits an epic's engineering plan, record it under **Epic**.
+- **IMPLEMENTATION PLAN phases** run **top to bottom by default** — each assumes the one above it is done.
+  Where that is NOT the true dependency, add a `**Depends on:**` line under the phase header, and an
+  `**Independent of:**` line where two phases don't block each other. Independent phases are candidates to run
+  in **parallel** (separate worktrees / parallel loops). Only annotate where it changes execution order or
+  unlocks parallelism — skip the obvious sequential case.
+- **STEP-BY-STEP TASKS** use information-dense action keywords: **CREATE** (new files or components),
+  **UPDATE** (modify existing files), **ADD** (insert new functionality into existing code), **REMOVE** (delete
+  deprecated code), **REFACTOR** (restructure without changing behavior), **MIRROR** (copy a pattern from
+  elsewhere in the codebase). Every task carries a VALIDATE command and a SATISFIES criterion, so every task
+  traces to an acceptance criterion.
+- **OPEN QUESTIONS / ASSUMPTIONS** — surface anything still uncertain instead of silently guessing. Flag
+  unresolved critical questions for the user before execution; in non-interactive mode this list is what the
+  caller surfaces for confirmation.
+
 ## Output Format
 
-**Filename**: `.claude/plans/{kebab-case-descriptive-name}.md`
-
-- Replace `{kebab-case-descriptive-name}` with short, descriptive feature name
-- Examples: `add-user-authentication.md`, `implement-search-api.md`, `refactor-database-layer.md`
-
-**Directory**: Create `.claude/plans/` if it doesn't exist
+**Filename**: `.claude/plans/{kebab-case-descriptive-name}.md` — a short, descriptive feature name, e.g.
+`add-user-authentication.md`, `implement-search-api.md`, `refactor-database-layer.md`. Create `.claude/plans/`
+if it doesn't exist. The basename is the plan slug `piv-implement` uses for its branch and report.
 
 ## Quality Criteria
 
-### Context Completeness ✓
+The goal is **one-pass implementation**: the execution agent finishes without additional research or
+clarification. Clarification the *user* owes the plan belongs in Phase 2's gate, not deferred to the execution
+agent. Check before reporting:
+
+**Context Completeness**
 
 - [ ] All necessary patterns identified and documented
 - [ ] External library usage documented with links
 - [ ] Integration points clearly mapped
 - [ ] Gotchas and anti-patterns captured
-- [ ] Every task has executable validation command
-- [ ] Phase 2's clarifying cluster was asked and answered, or explicitly recorded as nothing open
+- [ ] Every task has at least one executable, non-interactive validation command
+- [ ] Phase 2's clarifying cluster was asked and answered, explicitly recorded as nothing open, or (declined /
+      non-interactive) recorded as `Assumed —` lines
 
-### Implementation Ready ✓
+**Implementation Ready**
 
-- [ ] Another developer could execute without additional context
+- [ ] Passes the "No Prior Knowledge Test": someone unfamiliar with the codebase could execute using only the
+      plan's content
 - [ ] Tasks ordered by dependency (can execute top-to-bottom)
 - [ ] Each task is atomic and independently testable
 - [ ] Pattern references include specific file:line numbers
 
-### Pattern Consistency ✓
+**Pattern Consistency**
 
 - [ ] Tasks follow existing codebase conventions
 - [ ] New patterns justified with clear rationale
 - [ ] No reinvention of existing patterns or utils
 - [ ] Testing approach matches project standards
 
-### Information Density ✓
+**Information Density**
 
 - [ ] No generic references (all specific and actionable)
 - [ ] URLs include section anchors when applicable
 - [ ] Task descriptions use codebase keywords
-- [ ] Validation commands are non interactive executable
-
-## Success Metrics
-
-**One-Pass Implementation**: Execution agent can complete feature without additional research or clarification — clarification the *user* owes the plan belongs in Phase 2's gate, not deferred to the execution agent
-
-**Validation Complete**: Every task has at least one working validation command
-
-**Context Rich**: The Plan passes "No Prior Knowledge Test" - someone unfamiliar with codebase can implement using only Plan content
-
-**Confidence Score**: #/10 that execution will succeed on first attempt
 
 ## Report
 
-After creating the Plan, provide:
+After creating the plan, provide:
 
 - Summary of feature and approach
-- Full path to created Plan file
+- Full path to the created plan file
 - Complexity assessment
 - Key implementation risks or considerations
-- Estimated confidence score for one-pass success
+- Every `Assumed —` line from OPEN QUESTIONS / ASSUMPTIONS (or "none")
+- Confidence score: #/10 that execution succeeds on the first attempt

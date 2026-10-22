@@ -1,28 +1,50 @@
 ---
 name: piv-commit
-description: Creates a new git commit for all uncommitted changes with an atomic, conventionally-tagged message. Use when work is complete and ready to be committed.
+description: Atomic, conventionally-tagged git commit of the uncommitted work. Use when work is complete and ready to be committed.
 ---
 
 # Commit: Create a New Commit
 
-Create a new commit for all of our uncommitted changes.
+Turn the uncommitted work into atomic commits: one logical change per commit, each with a conventional message.
 
 ## Process
 
 0. **Read this project's conventions.** If `.claude/references/conventions.md` exists, read its `## commit`
    section and follow it — those rules win over the defaults below. That file is where a project's specifics
    live; this skill stays general.
-1. Run `git status && git diff HEAD && git status --porcelain` to see what files are uncommitted.
-2. Add the untracked and changed files.
-3. Write an atomic commit message with an appropriate, descriptive summary.
-4. Add a tag such as `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, etc. that reflects our work.
+
+1. **See what is uncommitted.** Run `git status --porcelain` (shows untracked files too), then `git diff HEAD`
+   (tracked changes). Read both before staging anything. Nothing listed → say so and stop.
+
+2. **Stage deliberately — by explicit path, never `git add -A` / `git add .` blindly.** Screen the list from
+   step 1 first:
+   - **Secrets — refuse to stage** unless the user explicitly asks for that exact file: `.env*` (committed
+     templates like `.env.example` are fine), `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `credentials*`, `*.p12`,
+     `.netrc`. Also scan the diff for secret-looking content (`-----BEGIN … PRIVATE KEY-----`, `AKIA…`, `ghp_…`,
+     `sk-…`, long literals assigned to `*KEY`/`*TOKEN`/`*SECRET`/`*PASSWORD`). Name the file and stop for it.
+   - **Junk — leave unstaged** unless explicitly asked: `node_modules/`, `dist/`, `build/`, `__pycache__/`,
+     `*.pyc`, `.DS_Store`, `*.log`, coverage output. Suggest a `.gitignore` entry rather than adding one yourself.
+   - **Agent-written folders:** `.claude/plans/` and `.claude/reports/` are committed **with the work by default**
+     — they document intent, and `piv-create-pr` / `piv-review-pr` read the reports. `.claude/code-reviews/`
+     is **asked about first**: reviews are usually posted to the PR, not stored in the repo. If you cannot ask
+     (autonomous run), leave it unstaged and say so.
+
+3. **One concern per commit.** If the diff mixes unrelated concerns (the feature plus a stray refactor, a
+   dependency bump, a config fix), propose a split: list the groups with their files and, once the user agrees,
+   stage and commit each group separately with its own message. A file that mixes concerns: say so, then commit
+   it under the dominant concern or ask.
+
+4. **Write the message.** `<tag>: <atomic description>` — tag is `feat`, `fix`, `docs`, `refactor`, `test`,
+   `chore`, etc., reflecting the work; the summary is specific and descriptive; add a body when the *why* isn't
+   obvious. Run `git commit` normally — **never `--no-verify`**; if a hook fails, report its output and stop.
+   Don't amend, force, or change git identity.
 
 ## Output
 
-A single commit containing all uncommitted changes, with a conventional-commit-style message
+One commit per logical change, each with a conventional-commit-style message
 (`<tag>: <atomic description>`) that accurately reflects the work done.
 
-After the commit succeeds, print two clearly labelled summaries:
+After the commit(s) succeed, print the hash(es) and two clearly labelled summaries:
 
 ### What Changed
 One short paragraph (3–6 sentences) describing the feature/fix/refactor that was committed — what problem it solves and what files were the key touch points. Write for a developer skimming the git log.
@@ -31,3 +53,6 @@ One short paragraph (3–6 sentences) describing the feature/fix/refactor that w
 Only include this section if any files under `.claude/` were modified or added (CLAUDE.md, `.claude/references/`, `.claude/skills/`, `.claude/agents/`, etc.).
 
 List each changed AI-layer file with a one-line note on what evolved and why. If nothing in `.claude/` changed, omit this section entirely.
+
+Also list anything you deliberately **did not stage** (secrets, junk, un-asked-for review files) and why, so
+nothing is silently dropped.
