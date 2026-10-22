@@ -68,8 +68,10 @@ specifics from the repo (see *Detecting the specifics*), never assume a stack.
   manifest's test/lint scripts and reuse those exact commands (test runner, type checker, linter). CI is the
   project's own source of truth for "what proves this code works" — don't invent `pytest`/`mypy` if the repo uses
   something else.
-- **Shell** — the commands above are plain `git` and package-manager invocations; they run the same from bash,
-  zsh, Git Bash, or PowerShell. Don't wrap them in shell-specific syntax (`[[ ]]`, `&&` chains, backticks) so a
-  Windows session can run them unchanged.
+- **Shell** — the `git` and package-manager invocations themselves run the same from bash, zsh, Git Bash, or
+  PowerShell. The *filtering* above (`| grep`, globs like `.env*`) does not: standard PowerShell has no `grep`.
+  There, use `Select-String` (`git ls-files --others --ignored --exclude-standard | Select-String '\.env|\.local$'`)
+  or run the git command alone and filter its output yourself. Don't add shell-specific syntax (`[[ ]]`, `&&`
+  chains, backticks) beyond that.
 
 > **Detect, don't hardcode** — everything above is discovered from the target repo at runtime.

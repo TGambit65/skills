@@ -194,7 +194,7 @@ deterministic code that fires on a lifecycle event whether the model remembers o
 Six copy-in hooks live in [`hooks/`](hooks/) with their own README: refuse the routes to your secrets a
 deny-list can see (and say plainly which ones it cannot), refuse `rm -rf` and the other irreversible deletes,
 enforce declared file coupling, log every tool call, inject today's git state at session start, refuse to let
-the agent finish while the tests are red, and ping you when it does finish. A 400-case corpus
+the agent finish while the tests are red, and ping you when it does finish. A 403-case corpus
 (`hooks/_test_hooks.py`) proves each one still does what it says.
 
 ```bash

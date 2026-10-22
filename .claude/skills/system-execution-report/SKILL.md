@@ -37,7 +37,9 @@ not fill a result from memory: a check you did not run in this session is `NOT R
 - Plan file: [path to plan that guided this implementation]
 - Files added: [list with paths]
 - Files modified: [list with paths]
-- Lines changed: +X -Y (from `git diff --stat` against the base branch — detect it: `git symbolic-ref refs/remotes/origin/HEAD`, else `git remote show origin`, else `main`)
+- Lines changed: +X -Y (from `git diff --stat` against the base branch — detect it: `git symbolic-ref refs/remotes/origin/HEAD`, else `git remote show origin`, else `main` or `master` if
+that branch exists locally (`git rev-parse --verify --quiet <name>`), else ask the user — or, unattended, write
+"base branch not found" instead of a number)
 
 ### Validation results
 

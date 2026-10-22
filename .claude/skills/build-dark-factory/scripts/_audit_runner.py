@@ -502,12 +502,14 @@ def audit_user_facing_text(run: Path, repo: Path | None):
     # was followed by a literal backspace byte, not the `\b` it was meant to be, so it
     # never matched anything either.) A check with a hole the size of its own subject is
     # decoration.
-    KNOB_NAME = re.compile(r"MINUTES")
+    # Exempt only the knob NAME itself, not the line it sits on: a line that names
+    # FACTORY_MAX_WAIT_MINUTES and then says "this takes about two minutes" still estimates.
+    KNOB_NAME = re.compile(r"\b[A-Z][A-Z0-9_]*MINUTES[A-Z0-9_]*\b")
     for f in files:
         for i, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-            if TECHNICAL.search(line) or KNOB_NAME.search(line):
+            if TECHNICAL.search(line):
                 continue
-            m = DURATION.search(line)
+            m = DURATION.search(KNOB_NAME.sub("", line))
             if m:
                 finding(f"{f.name}:{i}: estimates how long something takes "
                         f"({m.group(0)!r}). The skill never says how much of someone's "

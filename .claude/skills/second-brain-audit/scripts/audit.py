@@ -264,11 +264,20 @@ def scan(root: Path, extra: list[str]):
         under_open = under_log = False
         heading = ""
         parent_bullet = ""
+        # (level, text, is_log) for every heading still open above this line. A child
+        # heading inherits its parents' Log exclusion: a `### 2025` under `## Log` is
+        # still history, not two rival `Status:` claims about now.
+        heading_stack: list[tuple[int, str, bool]] = []
         for lineno, line in iter_lines(text):
             if line.startswith("#"):
+                level = len(line) - len(line.lstrip("#"))
+                while heading_stack and heading_stack[-1][0] >= level:
+                    heading_stack.pop()
+                heading_stack.append((level, line.strip("# ").strip().lower(),
+                                      bool(LOG_HEADING.match(line))))
                 under_open = bool(OPEN_HEADING.match(line))
-                under_log = bool(LOG_HEADING.match(line))
-                heading = line.strip("# ").strip().lower()
+                under_log = any(is_log for _, _, is_log in heading_stack)
+                heading = " > ".join(t for _, t, _ in heading_stack)
                 parent_bullet = ""
                 # A `## Current State` section holds values, not to-dos. "PAID" there is
                 # a state, not a finished item forgotten in an open list.
@@ -459,6 +468,10 @@ def main() -> int:
         len(h["money"]) for hits in subjects.values() for h in hits if in_always(h)
     ) if always else 0
     pct = round(100 * dur_d / dur_b) if dur_b else 0
+    rels = [str(p.relative_to(root)).replace("\\", "/").lower() for p in files]
+    # Names that point at no scanned file. Computed before the JSON branch so a JSON
+    # consumer can tell "always-loaded file has no conflicts" from "never looked at it".
+    unmatched = [al for al in always if not any(f == al or f.endswith("/" + al) for f in rels)]
 
     if a.json:
         print(json.dumps({
@@ -469,6 +482,12 @@ def main() -> int:
             "key_conflicts": len(kconf),
             "key_conflicts_in_always_loaded": len(hot_keys),
             "finished_but_open": len(fin_open), "schema_pages": len(schema),
+            "always_loaded_unmatched": unmatched,
+            "coverage_warnings": (
+                [{"code": "always_loaded_unmatched", "names": unmatched,
+                  "meaning": "these --always-loaded names matched no scanned file, so the "
+                             "*_in_always_loaded counts do not cover them"}]
+                if unmatched else []),
             "detail": [dict({k: c[k] for k in ("subject", "kind", "values")},
                             files=sorted({h["file"] for h in c["hits"]})) for c in conts[:25]],
             "key_conflict_detail": [
@@ -568,12 +587,12 @@ def main() -> int:
                      "    agrees with the rest of the notes, or the disagreement is in prose\n"
                      "    (paid, on hold, cancelled), which this scan cannot see. Read that file\n"
                      "    claim by claim (phase 2) before calling it clean.")
-    if always and not any(f.lower() == al or f.lower().endswith("/" + al)
-                          for al in always
-                          for f in (str(p.relative_to(root)).replace("\\", "/") for p in files)):
-        blind.append("None of the --always-loaded names matched a file under the notes\n"
-                     "    folder, so the ALWAYS LOADED marks above are all absent. Check the\n"
-                     "    spelling, or pass the path relative to the notes folder.")
+    if unmatched:
+        which = "None of the --always-loaded names" if len(unmatched) == len(always) \
+            else f"{len(unmatched)} --always-loaded name(s) ({', '.join(unmatched)})"
+        blind.append(f"{which} matched a file under the notes\n"
+                     "    folder, so the ALWAYS LOADED marks above are absent for them. Check\n"
+                     "    the spelling, or pass the path relative to the notes folder.")
     if blind:
         print(f"\n{'-' * W}\n  COVERAGE WARNING: a low count above may mean 'not visible',\n"
               f"  not 'not present'.\n{'-' * W}")

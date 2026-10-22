@@ -206,6 +206,17 @@ def run_one(root: Path, sha: str, arm: str, index: int, prompt: str,
         # diff opens with "deleted file CLAUDE.md", which names the arm to the
         # grader and inflates files_changed. The agent has already run; this
         # changes nothing about what it saw.
+        #
+        # But an agent that RECREATED a stripped file (writing its own CLAUDE.md is
+        # a plausible move with none present) did real work there, and restoring the
+        # base version would erase it from the diff while the run still looked usable.
+        # Keep its content as a separate result and mark the run unusable for grading.
+        recreated = [r for r in rec["removed"] if (wt / r).exists()]
+        if recreated:
+            rec["recreated"] = {r: (wt / r).read_text(encoding="utf-8", errors="replace")[:20000]
+                                for r in recreated}
+            rec["note"] = ("agent recreated stripped instruction file(s): "
+                           f"{', '.join(recreated)}; run kept out of grading (content in 'recreated')")
         if rec["removed"]:
             git(["checkout", "--quiet", sha, "--", *rec["removed"]], wt, check=False)
 
@@ -213,8 +224,8 @@ def run_one(root: Path, sha: str, arm: str, index: int, prompt: str,
         rec["diff"] = git(["diff", "--cached"], wt, check=False)
         rec["files_changed"] = [
             l for l in git(["diff", "--cached", "--name-only"], wt, check=False).splitlines() if l]
-        rec["ok"] = not rec.get("agent_error") and bool(rec["diff"].strip())
-        if not rec["diff"].strip():
+        rec["ok"] = not rec.get("agent_error") and bool(rec["diff"].strip()) and not recreated
+        if not rec["diff"].strip() and not recreated:
             rec["note"] = "agent produced no file changes"
     except subprocess.TimeoutExpired:
         rec["note"] = f"timed out after {timeout}s"

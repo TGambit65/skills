@@ -155,12 +155,21 @@ def iter_matches(root: Path):
                 "kind": kind,
                 "note": why or note,
                 "bytes": p.stat().st_size,
+                # The token estimate is characters / 4; bytes overstate it for non-ASCII text.
+                "chars": len(text),
                 "lines": len(text.splitlines()),
             }
             if DESCRIPTION_LISTED.search(rp.as_posix()):
-                desc = frontmatter(p).get("description", "")
-                item["description_chars"] = len(desc)
-                item["description_tokens_est"] = est_tokens(len(desc))
+                fm = frontmatter(p)
+                # `disable-model-invocation: true` keeps the description out of the
+                # model's context (the skill loads only on /name), so it costs nothing
+                # until invoked and is not counted as always-loaded.
+                if str(fm.get("disable-model-invocation", "")).strip().strip("'\"").lower() == "true":
+                    item["description_listed"] = False
+                else:
+                    desc = fm.get("description", "")
+                    item["description_chars"] = len(desc)
+                    item["description_tokens_est"] = est_tokens(len(desc))
             yield item
 
 
@@ -179,7 +188,7 @@ def main() -> int:
     items = sorted(iter_matches(root), key=lambda d: (d["kind"], d["path"]))
     always = [i for i in items if i["kind"] == ALWAYS]
     listed = [i for i in items if "description_chars" in i]
-    file_tokens = est_tokens(sum(i["bytes"] for i in always))
+    file_tokens = est_tokens(sum(i["chars"] for i in always))
     desc_tokens = sum(i["description_tokens_est"] for i in listed)
     summary = {
         "always_loaded_files": len(always),
@@ -217,6 +226,8 @@ def main() -> int:
             extra = ""
             if "description_chars" in i:
                 extra = f"  [description ~{i['description_tokens_est']} tok, always listed]"
+            elif i.get("description_listed") is False:
+                extra = "  [disable-model-invocation: description not listed]"
             print(f"    {i['lines']:>5} ln  {i['path']:<52} {i['note']}{extra}")
         print()
 

@@ -157,8 +157,8 @@ text is in the reference.
 ## Phase 1. Interview
 
 Read `references/interview.md` and work through it. **Three rounds, not a questionnaire:**
-Round 1 is the three questions below, one at a time, before anything else. Round 2 is six
-only the user can answer, each about something that has already happened to them - never
+Round 1 is the three questions below, one at a time, before anything else. Round 2 is eight
+(R2.1, R2.2, R2.3, R2.3b, R2.4, R2.5a, R2.5b, R2.7) only the user can answer, each about something that has already happened to them - never
 ask them to design an artifact; turn the answer into scenarios, defects and rules yourself.
 Round 3 is a **single message** of every remaining setting with its default filled in,
 asking what to change.

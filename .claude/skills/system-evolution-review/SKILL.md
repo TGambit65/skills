@@ -33,10 +33,14 @@ Two artifacts are required; two more are read whenever they are available.
 **Generated Plan (required):** what the agent was SUPPOSED to do. Plan file: $plan
 
 **Execution Report (required):** what the agent ACTUALLY did and why. Execution report: $report
-If no report path was passed (nothing follows the colon above), look in this order and use the first that exists:
-- `.claude/execution-reports/<feature>.md` (written by `system-execution-report`)
-- `.claude/reports/<slug>-report.md` (written by `piv-implement`)
-If neither exists, stop and ask for it - do not reconstruct the report from the diff.
+If no report path was passed (nothing follows the colon above), use the path `system-execution-report` printed in
+this conversation, if it did. Otherwise check both locations:
+- `.claude/execution-reports/<feature>.md` (written by `system-execution-report` when no piv-implement report existed)
+- `.claude/reports/<slug>-report.md` (written by `piv-implement`, and extended in place by `system-execution-report`)
+
+Exactly one exists → use it. **Both exist** → stop and ask which one is this run's report (name both, with their
+modification times): one is likely stale from an earlier run. Neither exists → stop and ask for it - do not
+reconstruct the report from the diff.
 
 **Plan skill and Execute skill (read them whenever installed):** the instructions that produced the plan and
 drove the implementation. Read the `piv-plan-implementation` and `piv-implement` skills wherever they live (project

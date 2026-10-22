@@ -209,7 +209,8 @@ than a dial nobody touched again.
 
 ## Round 2 - what only they can answer
 
-**Seven questions, and every one is about something that has already happened to them.**
+**Eight questions (R2.1, R2.2, R2.3, R2.3b, R2.4, R2.5a, R2.5b, R2.7), and every one is about something
+that has already happened to them.**
 
 That is the rule this round is built on, and it is a correction. An earlier version asked
 people to *design* things: name three properties that hold when features combine, list six

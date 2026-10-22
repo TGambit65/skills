@@ -167,12 +167,15 @@ def check_arguments(skills: dict, rep: Report) -> None:
         raw = s["fm"].get("arguments", "")
         declared = [a.strip() for a in raw.strip("[]").split(",") if a.strip()] if raw else []
         used = set(re.findall(r"\$([A-Za-z][\w-]*)", s["text"]))
-        used.discard("ARGUMENTS")
+        # `$ARGUMENTS-report.md` is $ARGUMENTS followed by text, not an argument named `ARGUMENTS-report`.
+        used = {u for u in used if u.split("-")[0] != "ARGUMENTS"}
         for a in declared:
             if a not in used:
                 rep.fail("arguments", where, f"declared argument '{a}' never used as ${a}")
         for u in sorted(used):
-            if declared and u not in declared and not u.isupper():
+            # Checked with or without an `arguments:` field: a body that uses `$notes`
+            # with nothing declared breaks the contract just the same.
+            if u not in declared and not u.isupper():
                 # `$notes` / `$review` style variables must be declared; shell vars like $PATH are fine
                 if not re.search(rf"\$\{{?{re.escape(u)}\b", body_without_fences(s["text"])):
                     continue
@@ -273,8 +276,10 @@ def check_readme(skills: dict, rep: Report) -> None:
     for name in skills:
         if name not in listed:
             rep.fail("readme", "README.md", f"skill '{name}' not listed")
-    counts = {int(n) for n in re.findall(r"\b(\d{2})\s+skills\b", text)}
-    if counts and counts != {len(skills)}:
+    counts = {int(n) for n in re.findall(r"\b(\d+)\s+skills\b", text)}
+    if not counts:
+        rep.fail("readme", "README.md", f"states no skill count (expected '{len(skills)} skills')")
+    elif counts != {len(skills)}:
         rep.fail("readme", "README.md", f"states {sorted(counts)} skills, directory has {len(skills)}")
 
 

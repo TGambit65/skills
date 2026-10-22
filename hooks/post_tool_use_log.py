@@ -57,21 +57,28 @@ FULL_PAYLOAD = False
 # Long tool inputs are truncated to keep the log readable.
 MAX_FIELD = 300
 
-# Credential shapes scrubbed from the summary before it is written.
+# Credential shapes scrubbed from the summary before it is written, as (pattern, replacement).
+_VALUE = r"(?:\"[^\"]*\"|'[^']*'|\S+)"   # a quoted value keeps its spaces; an unquoted one ends at one
+_KEYWORD = r"(?:password|passwd|secret|token|api[_-]?key|credential)"
 REDACT = (
-    re.compile(r"(?i)(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}"),
-    re.compile(r"\b(sk|rk|pk)[-_](live|test|proj|ant|or)?[-_]?[A-Za-z0-9]{16,}\b"),
-    re.compile(r"\b(gh[pousr]|github_pat)_[A-Za-z0-9_]{20,}\b"),
-    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-    re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b"),
-    re.compile(r"(?i)\b(password|passwd|secret|token|api[_-]?key)\s*[=:]\s*\S+"),
-    re.compile(r"://[^/\s:@]+:[^/\s@]+@"),  # user:pass@ in a URL
+    (re.compile(r"(?i)(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}"), "[REDACTED]"),
+    (re.compile(r"\b(sk|rk|pk)[-_](live|test|proj|ant|or)?[-_]?[A-Za-z0-9]{16,}\b"), "[REDACTED]"),
+    (re.compile(r"\b(gh[pousr]|github_pat)_[A-Za-z0-9_]{20,}\b"), "[REDACTED]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
+    (re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b"), "[REDACTED]"),
+    # --password value / --api-key=value. Before NAME=value, so the flag's own `=` is not taken first.
+    (re.compile(r"(?i)(--[\w-]*" + _KEYWORD + r"[\w-]*)(=|\s+)" + _VALUE), r"\1\2[REDACTED]"),
+    # NAME=value / NAME: value, prefixed names included (DB_PASSWORD, OPENAI_API_KEY): `\b` does not
+    # fire between `_` and the keyword, so the name is matched whole. The name is kept, the value is not.
+    (re.compile(r"(?i)(?<![A-Za-z0-9-])([A-Za-z0-9_]*" + _KEYWORD + r"[A-Za-z0-9_]*)(\s*[=:]\s*)" + _VALUE),
+     r"\1\2[REDACTED]"),
+    (re.compile(r"://[^/\s:@]+:[^/\s@]+@"), "://[REDACTED]@"),  # user:pass@ in a URL
 )
 
 
 def _redact(text: str) -> str:
-    for pattern in REDACT:
-        text = pattern.sub("[REDACTED]", text)
+    for pattern, replacement in REDACT:
+        text = pattern.sub(replacement, text)
     return text
 
 

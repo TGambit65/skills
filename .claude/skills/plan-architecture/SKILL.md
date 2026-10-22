@@ -30,8 +30,8 @@ investigate → surface 2–3 options with trade-offs → recommend + reasoning 
 ```
 
 Ask sharp clarifying questions whenever the intent or the user's goals are unclear. Never converge on a single
-answer silently. If the caller says the run is unattended (`piv-run-full-loop`, a factory, a scheduled job), stop and say so rather than deciding alone
-rather than deciding alone.
+answer silently. If the caller says the run is unattended (`piv-run-full-loop`, a factory, a scheduled job), stop
+and say so rather than deciding alone.
 
 ## Your role
 
@@ -137,8 +137,9 @@ Decisions deliberately deferred — named, not hidden — and what would settle 
 Confirm where you wrote it, summarize the recommended approach + the key calls in a few lines, then offer the
 natural next moves and let the user pick — **don't force a pipeline**:
 
-- **Slice it into tickets** — feed the doc to `piv-slice-epic` to break the epic into PIV-sized tickets and
-  create them (GitHub issues, Jira tickets, or a local file).
+- **Slice it into tickets** — pass the original epic or PRD **and** this architecture doc to `piv-slice-epic` to
+  break the work into PIV-sized tickets and create them (GitHub issues, Jira tickets, or a local file). The doc
+  alone drops the epic's goals and acceptance criteria.
 - **Keep going here** — refine the decisions, or create the tickets directly (show the list, get a yes first).
 - **Small epic? Plan it in one go** — skip slicing and go straight to `piv-plan-implementation`.
 - **Spike something now** — if an open risk is blocking, go build the spike/experiment we flagged.

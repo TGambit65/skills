@@ -10,13 +10,25 @@ argument-hint: "[ticket keys/URLs] [doc page ids/URLs]"
 
 Build targeted understanding of the backend — structure, routes, services, data layer — keeping the context window light on full-stack codebases. This is `prime-codebase` scoped to the backend: Step 0 and the report discipline are identical; below is only what differs. Do **not** also run `prime-codebase` — its whole-repo map is the context this skill exists to avoid.
 
-`$ARGUMENTS` (all optional): Jira issue keys (`ACC-2` or comma-separated `ACC-2,ACC-3`) and/or numeric Confluence page ids.
+`$ARGUMENTS` (all optional): task references, space- or comma-separated. Recognized forms, each with where it is
+fetched from:
+
+| Reference | Example | Fetch with |
+|---|---|---|
+| Jira issue key or URL | `ACC-2`, `https://x.atlassian.net/browse/ACC-2` | Atlassian/Jira MCP "get issue" (cloud id first if the server needs one; markdown where offered) |
+| Confluence page id or URL | `123456`, `https://x.atlassian.net/wiki/.../pages/123456/...` | Atlassian MCP "get page" |
+| GitHub issue or PR | `owner/repo#12`, `#12`, a `github.com/.../issues/12` or `/pull/12` URL | `gh issue view <ref>` / `gh pr view <ref>` |
+| Linear issue URL | `https://linear.app/<team>/issue/ENG-12/...` | a Linear MCP "get issue" tool |
+| Notion page URL | `https://www.notion.so/...` | a Notion MCP "fetch" tool |
+
+A bare `KEY-n` is a Jira key unless only a Linear tool is connected; if both are, ask. Anything else: say you do
+not recognize it and ask what it is.
 
 ## Process
 
 ### Step 0: Load External Context
 
-As in `prime-codebase`, BEFORE the codebase analysis. If `$ARGUMENTS` is empty, skip to Step 1. Otherwise fetch each Jira issue / Confluence page via your Atlassian/Jira MCP tools (a "get issue" / "get page" tool; cloud id first if the server needs one; markdown where offered). Issues are the task context for everything that follows; pages are supporting context. No Atlassian tool → say so and ask for a paste; never guess. Summarize what was loaded in a few lines.
+As in `prime-codebase`, BEFORE the codebase analysis. If `$ARGUMENTS` is empty, skip to Step 1. Otherwise fetch each reference with the tool the table above names. Tickets are the task context for everything that follows; pages are supporting context. No tool reaches it → say so and ask for a paste; never guess. Summarize what was loaded in a few lines.
 
 ### 1. Locate the Backend
 
@@ -25,6 +37,10 @@ Only the repo outline loads automatically:
 !`git ls-files | wc -l`
 
 !`git ls-tree --name-only HEAD`
+
+Directories to depth 3 (first 150), so a nested root such as `apps/backend` or `services/api` is visible:
+
+!`git ls-tree -r -d --name-only HEAD | cut -d/ -f1-3 | sort -u | head -150`
 
 Common backend roots: `backend/`, `server/`, `api/`, `app/` (FastAPI/Django), `src/` (backend-only project), or a package under `apps/`/`packages/`/`services/` in a monorepo. Pick the root from the outline and Step 0 context; if several fit, ask. Then list only that root, bounded:
 

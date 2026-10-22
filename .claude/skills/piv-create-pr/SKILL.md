@@ -20,6 +20,9 @@ Don't hardcode `main`. Resolve it:
 
 ## Phase 1 — Validate git state
 
+First, `git remote get-url origin`. If it fails there is no remote to push to or open a PR against: stop here and
+follow the no-remote path in **Notes** (skip the PR, review your own diff with `piv-review-changes`).
+
 ```bash
 git fetch origin                      # so origin/{base} is current before comparing
 git branch --show-current

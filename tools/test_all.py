@@ -2,7 +2,7 @@
 """Run every check this repo has and print one PASS/FAIL line per check.
 
     python3 tools/test_all.py            # everything
-    python3 tools/test_all.py --quick    # contracts + hooks corpus only (skips the slow runner suite)
+    python3 tools/test_all.py --quick    # contracts + hooks corpus only
 
 Exit 0 only when every check passes. Each test script runs from its own skill folder, the
 way its docstring says to run it. Zero dependencies; Python 3.8+.
@@ -18,7 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SK = ROOT / ".claude" / "skills"
 
-# (label, cwd, argv). Order: cheap and broad first.
+# (label, cwd, argv). Order: cheap and broad first. --quick runs only the labels in QUICK.
+QUICK = {"contracts", "hooks corpus"}
 CHECKS = [
     ("contracts", ROOT, [sys.executable, "tools/check_contracts.py"]),
     ("hooks corpus", ROOT, [sys.executable, "hooks/_test_hooks.py"]),
@@ -32,14 +33,17 @@ CHECKS = [
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--quick", action="store_true", help="skip the slow suites")
+    ap.add_argument("--quick", action="store_true", help="contracts + hooks corpus only")
     args = ap.parse_args(argv)
 
-    failed = 0
+    failed = ran = skipped = 0
     for label, cwd, cmd in CHECKS:
-        if args.quick and "(slow)" in label:
+        if args.quick and label not in QUICK:
             print(f"SKIP  {label}")
+            skipped += 1
             continue
+        ran += 1
+        r = None
         t0 = time.time()
         try:
             r = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, timeout=1800)
@@ -52,9 +56,10 @@ def main(argv: list[str]) -> int:
         status = "PASS" if code == 0 else "FAIL"
         failed += code != 0
         print(f"{status}  {label:28} {time.time() - t0:6.1f}s  {tail[:100]}")
-        if code != 0:
-            print("      " + "\n      ".join((r.stdout + r.stderr).strip().splitlines()[-15:]) if 'r' in locals() else "")
-    print(f"\n{'PASS' if not failed else 'FAIL'}: {len(CHECKS) - failed}/{len(CHECKS)} checks green")
+        if code != 0 and r is not None:
+            print("      " + "\n      ".join((r.stdout + r.stderr).strip().splitlines()[-15:]))
+    note = f" ({skipped} skipped, not run)" if skipped else ""
+    print(f"\n{'PASS' if not failed else 'FAIL'}: {ran - failed}/{ran} checks green{note}")
     return 1 if failed else 0
 
 

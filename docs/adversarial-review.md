@@ -52,7 +52,7 @@ Python 3.8 syntax check on all 32 scripts; a 39-command manual check of the secr
 | No behavioural instruction lost | Met after cycle 2: two independent audits found 2 missing + 16 weakened items in cycle-1 output; all restored or re-decided explicitly (section D) |
 | Keep all 36 names, no deletions | Met |
 | Scripts zero-dependency, Python 3.8+ | Met (AST-verified) |
-| Tests pass or skip on every OS | Met on Linux; Windows-only cases now skip; macOS/Windows not executed |
+| Tests pass or skip on every OS | Partially met: Linux verified; Windows and macOS NOT RUN (Windows-only cases skip on Linux, which shows only that they skip) |
 
 ## C. Issues by severity (the catalogue; fixes in D)
 

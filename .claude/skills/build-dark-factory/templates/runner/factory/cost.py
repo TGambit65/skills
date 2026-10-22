@@ -29,6 +29,7 @@ no cost figure -- it gets believed.
 from __future__ import annotations
 import glob
 import json
+import math
 import os
 import sys
 
@@ -169,6 +170,11 @@ def cmd_daily(argv: "list[str]") -> int:
             cap = float(argv[0])
         except ValueError:
             print(f"DAILY_CAP_INVALID {argv[0]!r} is not a number; refusing rather than guessing")
+            return 1
+        # float() accepts "nan" and "inf". NaN compares false both ways, so `usd >= cap`
+        # never fires and the cap is silently off while reading as on.
+        if not math.isfinite(cap):
+            print(f"DAILY_CAP_INVALID {argv[0]!r} is not a finite number; refusing rather than guessing")
             return 1
     day = today_utc()
     usd, counted, unmeasured = daily_total(day)

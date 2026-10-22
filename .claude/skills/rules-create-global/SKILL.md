@@ -28,8 +28,10 @@ not a source.
 Before writing anything, check for `CLAUDE.md` / `AGENTS.md` at the root (and the target package, in a monorepo):
 
 - **Exists** → read it first and treat it as the starting point, then copy it to `<file>.bak` (if that exists,
-  `<file>.<YYYYMMDD-HHMM>.bak`) and tell the user the backup path. **Never overwrite a rules file without a
-  backup written first**; if the copy fails, stop and ask.
+  `<file>.<YYYYMMDD-HHMMSS>.bak`; if that exists too, add `-2`, `-3`, … until the name is free) and tell the user
+  the backup path. Never let the copy replace an existing backup: copy no-clobber (`cp -n`, or check the target
+  is absent first) and confirm the new file exists. **Never overwrite a rules file without a backup written
+  first**; if the copy fails, stop and ask.
 - **Which file to write:** `CLAUDE.md` only → write it. `AGENTS.md` only, or `CLAUDE.md` is just `@AGENTS.md` →
   write `AGENTS.md` (one source of truth). Neither → `CLAUDE.md` for a Claude-Code-only project, `AGENTS.md` if
   the team is multi-tool.
@@ -55,8 +57,9 @@ Your rules file is read on every task. Four kinds of content earn that slot:
 Sort every candidate line into one of four destinations:
 
 - **Keep always-on** → map / ground rules / working principles — true project-wide, every task.
-- **Push to on-demand** → recurring but task-*type*-specific → `.claude/references/<topic>.md` (or wherever your
-  tool looks — `.agent/`, etc.) or a skill.
+- **Push to on-demand** → recurring but task-*type*-specific → `.claude/references/<topic>.md`, another
+  repository-relative reference directory the project already defines (e.g. `.agent/`), or a skill. Inside the
+  repository only: never discover or write to user-level or global agent configuration directories.
 - **Move to a plan** → task-specific "what to build next" → it was never a rule.
 - **Delete** → redundant, or a slogan the model already follows.
 

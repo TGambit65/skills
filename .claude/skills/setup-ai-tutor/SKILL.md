@@ -27,7 +27,8 @@ docker compose version >/dev/null 2>&1 || docker-compose version >/dev/null 2>&1
 ```
 
 Use `docker compose` (Compose v2+). Fall back to `docker-compose` only if that is the one installed; Compose v1
-is unmaintained, so tell the user.
+is unmaintained, so tell the user. Whichever one passed the check is `COMPOSE` below: use it for every compose
+command in this skill (`docker compose up -d db` becomes `docker-compose up -d db`, and so on).
 
 ### 1. Create Environment File
 ```bash
@@ -45,9 +46,9 @@ Installs all Python packages defined in pyproject.toml.
 
 ### 3. Start Database
 ```bash
-docker compose up -d db
+$COMPOSE up -d db        # COMPOSE is `docker compose` or `docker-compose`, from Step 0
 ```
-Starts PostgreSQL in a Docker container. Wait until the container reports healthy (`docker compose ps`) before
+Starts PostgreSQL in a Docker container. Wait until the container reports healthy (`$COMPOSE ps`) before
 migrating; migrations against a database that is still booting fail with a connection error that looks like a
 config problem.
 
@@ -94,7 +95,7 @@ A running local AI Tutor instance, plus a short summary of each step's result.
 To stop services:
 ```bash
 # Stop dev server: Ctrl+C
-# Stop database: docker compose down
+# Stop database: $COMPOSE down   (the command chosen in Step 0)
 ```
 
 ## Notes

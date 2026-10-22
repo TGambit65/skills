@@ -45,7 +45,7 @@ Rules got ignored. Guards did not.
 | `session_start_context.py` | **SessionStart** | Injects what is true *today*: branch, uncommitted files, recent commits, plus any working-notes file. | No | Fails open |
 | `stop_tests_must_pass.py` | **Stop** | Runs your test command when the agent tries to finish. Red, and it blocks the stop and hands back the failures. Green-because-the-tests-changed (or vanished) also blocks. | **Yes** | Fails open, **loudly** (exit 1) |
 | `stop_notify.py` | **Stop** | Native desktop notification when the turn ends, so you can walk away. | No | Fails open |
-| `_test_hooks.py` | - | 400 payloads with the exit code each hook must produce. Run it after every edit. | - | - |
+| `_test_hooks.py` | - | 403 payloads with the exit code each hook must produce. Run it after every edit. | - | - |
 
 That split is the mental model: **pre = gate, post = log.** Pre-hooks fire before the action, so they can stop
 it. Post-hooks fire after, so all they can do is observe and react.
@@ -90,12 +90,12 @@ Never trust a hook you have only read. A hook that always blocks and a hook that
 until the moment one of them fires wrong. The corpus does this for you:
 
 ```bash
-python3 .claude/hooks/_test_hooks.py        # every hook, 400 payloads, expected exit code per payload
+python3 .claude/hooks/_test_hooks.py        # every hook, 403 payloads, expected exit code per payload
 python3 .claude/hooks/_test_hooks.py -v     # show what each hook said on stderr
 ```
 
 It is zero-dependency Python, so it runs anywhere the hooks run. It also runs against *any* hooks directory
-(`--hooks-dir`), which is how I know the previous version of the secrets hook passes 210 of the 400 cases. Every
+(`--hooks-dir`), which is how I know the previous version of the secrets hook passed 210 of the original 400 cases. Every
 case carries a one-line reason, and the ones marked `[decision]` are judgment calls documented below rather than
 bugs - change the decision, change the expected value, and you have a record of why.
 

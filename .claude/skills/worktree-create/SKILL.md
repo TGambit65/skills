@@ -33,6 +33,10 @@ Read `references/worktree-setup.md`, then determine from **this** repo (not from
 - the **verification/health-check command** (a health endpoint if the app exposes one, else a build/test smoke —
   prefer whatever CI runs),
 - a **base port**, only if the health check starts a service,
+- **database isolation**, only if the health check writes to a local database: how the app picks its database
+  (a `DATABASE_URL`, a schema or name variable, a SQLite path) so each worktree gets its own — a per-worktree
+  database name or file. If no safe per-worktree setting exists, health checks that write to it must not run in
+  parallel: run those checks one at a time, or mark them NOT RUN,
 - per branch, whether it **already exists** (`git rev-parse --verify --quiet refs/heads/<branch>`), so the
   subagent gets the right create command.
 
@@ -49,6 +53,7 @@ so everything it needs must be in it:
 
 ```
 Set up a git worktree for branch: BRANCH   (assigned port: PORT, only relevant if you start a service)
+Database isolation: DB_ISOLATION   (env settings that give this worktree its own database, or NONE)
 
 1. Create the worktree off the base branch BASE:
    - branch does not exist yet:  git worktree add worktrees/BRANCH -b BRANCH BASE
@@ -61,7 +66,9 @@ Set up a git worktree for branch: BRANCH   (assigned port: PORT, only relevant i
    contents of these files — not in the health check, not in the report. Names only.
 3. Install dependencies inside the worktree:  INSTALL_COMMANDS   (every package, for a monorepo).
 4. Run the generate/build step the app needs to boot, if any:  BUILD_COMMAND
-5. Verify:  HEALTH_CHECK   (if it starts a service, use PORT; stop any server you started afterwards).
+5. Verify:  HEALTH_CHECK   (if it starts a service, use PORT and DB_ISOLATION; stop any server you started
+   afterwards). If the check writes to a shared database and DB_ISOLATION is NONE, do not run it: report NOT RUN,
+   "no per-worktree database".
 
 Report exactly: worktree path · branch · deps installed (yes/no) · health check (PASS / FAIL / NOT RUN — with the reason) · any errors
 (error messages only, never file contents).
@@ -70,6 +77,9 @@ Report exactly: worktree path · branch · deps installed (yes/no) · health che
 For a single branch, run the same steps directly instead of spawning.
 
 ## Aggregate and report
+
+If adding `worktrees/` changed the tracked `.gitignore`, say so and tell the user to commit it (or stash it)
+before `worktree-merge`, which requires a clean tracked tree.
 
 Collect the reports and print a per-worktree summary (path · branch · deps · health · port), a combined
 `N worktree(s) ready` line, the next step (open each worktree / start a PIV loop in it), and the cleanup reminder:

@@ -10,7 +10,19 @@ argument-hint: "[ticket keys/URLs] [doc page ids/URLs]"
 
 Build a working understanding of the codebase — structure, documentation, key files, current state — loading only what orientation needs. If `$ARGUMENTS` names external task references, load them first so the analysis is anchored to the actual work.
 
-`$ARGUMENTS` (all optional): Jira issue keys — one (`ACC-2`) or comma-separated (`ACC-2,ACC-3`) — and/or numeric Confluence page ids.
+`$ARGUMENTS` (all optional): task references, space- or comma-separated. Recognized forms, each with where it is
+fetched from:
+
+| Reference | Example | Fetch with |
+|---|---|---|
+| Jira issue key or URL | `ACC-2`, `https://x.atlassian.net/browse/ACC-2` | Atlassian/Jira MCP "get issue" (cloud id first if the server needs one; markdown where offered) |
+| Confluence page id or URL | `123456`, `https://x.atlassian.net/wiki/.../pages/123456/...` | Atlassian MCP "get page" |
+| GitHub issue or PR | `owner/repo#12`, `#12`, a `github.com/.../issues/12` or `/pull/12` URL | `gh issue view <ref>` / `gh pr view <ref>` |
+| Linear issue URL | `https://linear.app/<team>/issue/ENG-12/...` | a Linear MCP "get issue" tool |
+| Notion page URL | `https://www.notion.so/...` | a Notion MCP "fetch" tool |
+
+A bare `KEY-n` is a Jira key unless only a Linear tool is connected; if both are, ask. Anything else: say you do
+not recognize it and ask what it is.
 
 ## Process
 
@@ -18,9 +30,9 @@ Build a working understanding of the codebase — structure, documentation, key 
 
 **Run this step BEFORE the codebase analysis.** If `$ARGUMENTS` is empty, skip to Step 1.
 
-- **Jira keys:** fetch each issue via your Atlassian/Jira MCP tools (e.g. a "get issue" tool; some servers need a cloud id first, from a "get accessible resources" tool — ask for markdown where offered). Treat summary, description, and acceptance criteria as the task context for everything that follows.
-- **Confluence page ids:** fetch each page the same way (a "get page" tool). Treat the content as supporting context (specs, design docs, requirements).
-- **No tool reaches it** (any tracker — Jira, Linear, GitHub via `gh issue view`, Confluence, Notion): say so and ask the user to paste the text. Never guess at what a ticket or page says.
+- **Tickets** (Jira, GitHub, Linear): fetch each with the tool in the table above. Treat summary, description, and acceptance criteria as the task context for everything that follows.
+- **Pages** (Confluence, Notion): fetch each the same way. Treat the content as supporting context (specs, design docs, requirements).
+- **No tool reaches it**: say so and ask the user to paste the text. Never guess at what a ticket or page says.
 
 Briefly summarize any external context loaded before continuing — this frames the rest of the priming.
 
