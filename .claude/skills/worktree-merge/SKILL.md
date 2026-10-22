@@ -29,8 +29,11 @@ linter). Do not hardcode `pytest`/`mypy`/`pyright` — use whatever this repo ac
    - **Main worktree, not a linked one:** `git rev-parse --git-dir` and `git rev-parse --git-common-dir` must print
      the same path (inside `worktrees/<branch>` they differ). Plain git, so it works in any shell — no bash-only
      pattern tests.
-   - **Clean tree:** `git status --porcelain --untracked-files=no` must print nothing. Uncommitted changes would be
-     carried into the integration branch and lost on rollback; ask the user to commit or stash first.
+   - **Clean tree:** `git status --porcelain --untracked-files=no` must print nothing, **and**
+     `git ls-files --others --exclude-standard` must print nothing (ignored files such as local config and the
+     ignored `worktrees/` folder are fine). Uncommitted changes would be carried into the integration branch and
+     lost on rollback, and an untracked source or test file would sit in the tree while the suite runs, so it
+     could pass on code that is not in any merged commit. Ask the user to commit, stash or remove them first.
    - Store the current branch; it must not be one of the branches to merge.
    - Every branch in the list exists: `git rev-parse --verify <branch>`.
 

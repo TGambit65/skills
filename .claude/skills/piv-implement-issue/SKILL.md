@@ -2,7 +2,7 @@
 name: piv-implement-issue
 description: Implements a GitHub issue fix from its piv-investigate-issue RCA: drift check, fix branch, regression test, validation, PASS/FAIL report. Use after the RCA exists to "fix issue N" or "implement the fix".
 argument-hint: [github-issue-id]
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(git branch --show-current:*), Bash(git symbolic-ref:*), Bash(git worktree list:*), Bash(git checkout -b:*), Bash(git switch -c:*), Bash(gh issue view:*), Bash(ruff:*), Bash(mypy:*), Bash(pytest:*), Bash(npm:*), Bash(bun:*), Bash(uv run:*)
+allowed-tools: Read, Write, Edit, Grep, Glob, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(git rev-parse:*), Bash(git branch --show-current:*), Bash(git symbolic-ref:*), Bash(git remote show origin:*), Bash(git worktree list:*), Bash(git checkout -b:*), Bash(git switch -c:*), Bash(gh issue view:*), Bash(ruff:*), Bash(mypy:*), Bash(pytest:*), Bash(npm:*), Bash(bun:*), Bash(uv run:*)
 ---
 
 # Implement Issue Fix: GitHub Issue #$ARGUMENTS
@@ -44,8 +44,9 @@ Before making changes:
 - **Confirm the issue still exists:** re-run the RCA's Reproduction command. If it no longer reproduces, stop and
   report — it may already be fixed, or the RCA's reproduction may be wrong. Don't implement a fix you can't see failing.
 - **Drift check:** read each file the RCA names and compare against the RCA's "Code Location" snippets / line refs
-  (`git diff --stat <investigated-at-commit>..HEAD -- <files>` shows what moved). If the code has **changed
-  materially** since the RCA, **stop** — surface the drift and suggest re-running `piv-investigate-issue` for
+  (`git diff --stat <investigated-at-commit>..HEAD -- <files>` shows committed movement; on a dirty branch also
+  check `git diff --stat -- <files>` and `git diff --cached --stat -- <files>` for uncommitted edits). If the code
+  has **changed materially** since the RCA, **stop** — surface the drift and suggest re-running `piv-investigate-issue` for
   issue #$ARGUMENTS rather than implementing a stale plan.
 - Confirm the proposed fix still addresses the root cause — don't silently deviate.
 

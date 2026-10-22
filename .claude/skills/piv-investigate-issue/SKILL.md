@@ -57,7 +57,13 @@ Decide: a recent **regression** vs a **long-standing** bug vs **original** behav
 
 Don't explain a bug you haven't seen. From the issue's steps and the Step 2 map, reproduce it the cheapest reliable
 way — the closest existing test, a throwaway script or failing test, or exercising the code path directly — against
-local/test state only, nothing destructive. Record the **exact command(s) and output**, plus `git rev-parse --short HEAD`.
+local/test state only, nothing destructive. Record the **exact command(s) and output**, plus
+`git rev-parse --short HEAD` and `git branch --show-current` (two separate values).
+
+**Redact before you write anything down.** The RCA is committed with the fix, so a reproduction that prints a
+token, cookie, password, connection string, API key or personal data must not reach it verbatim: replace each
+value with `[REDACTED:<kind>]` (keep the key or field name, drop the value), and note in the RCA that the output
+was sanitized. Never paste the contents of an env or secret file, even redacted.
 
 Outcome is one of **Reproduced** (output shows the symptom) · **Not reproduced** (what you tried, what happened) ·
 **Not attempted** (why: credentials, hardware, dataset…). Only **Reproduced** supports **Confidence: High**; a
@@ -112,7 +118,8 @@ Save analysis as: `docs/issues/issue-$ARGUMENTS.md` (create the directory if nee
 - **Title**: [Issue title from GitHub]
 - **Reporter**: [GitHub username]
 - **Status**: [Current GitHub issue status]
-- **Investigated at commit**: [short SHA + branch, from Step 4]
+- **Investigated at commit**: [short SHA only, from Step 4 — `piv-implement-issue` uses it as a git revision]
+- **Investigated on branch**: [branch name, from Step 4]
 
 ## Assessment
 
@@ -151,8 +158,10 @@ Each value needs a one-line reason grounded in the investigation (not a guess):
 **Reproduction Command and Output:**
 ```
 [exact command(s) from Step 4]
-[trimmed output showing the symptom — or what happened instead]
+[trimmed output showing the symptom — or what happened instead — with secrets and personal data redacted]
 ```
+
+**Output sanitized:** [yes — what kinds were redacted / no — nothing sensitive in the output]
 
 ## Root Cause
 
@@ -246,7 +255,10 @@ This RCA document should be used by the `piv-implement-issue` skill.
 ## Next Steps
 
 1. Review this RCA document
-2. Run the `piv-implement-issue` skill with issue #$ARGUMENTS to implement the fix
+2. If **Reproduction Verified** is `Reproduced`, run the `piv-implement-issue` skill with issue #$ARGUMENTS to
+   implement the fix. If it is `Not reproduced` or `Not attempted`, this RCA is diagnostic only:
+   `piv-implement-issue` requires a reproduction it can see failing, so re-run this investigation once the
+   reproduction conditions are available
 3. Run the `piv-commit` skill after implementation complete
 ```
 

@@ -55,7 +55,8 @@ in itself; a check you could not run is reported as `NOT RUN`, never assumed gre
 These skills ship no subagents. If the project defines `.claude/agents/code-reviewer.md`, dispatch it for the deep
 pass; otherwise dispatch a built-in general-purpose subagent with the same brief; with no subagent mechanism at all,
 **do the review yourself, here** (the new-session rule is what keeps the inline pass clean). Either way: review against the project's standards and report **high-confidence issues only** — anything
-unconfirmed is listed as `Unverified` and does not drive the verdict. Read every changed file *in full* (not just
+unconfirmed is listed as `Unverified` and does not drive the verdict, **except security**: a security concern you
+could neither confirm nor rule out is a Critical finding and blocks (the rule `piv-review-changes` uses). Read every changed file *in full* (not just
 the diff). Cover: correctness · type safety · pattern/standards compliance · security · performance · tests
 present · maintainability.
 

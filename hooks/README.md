@@ -214,7 +214,8 @@ Each of these is a line in the `EDIT THESE` block and a `[decision]` case in the
   `git checkout -- path`, `git restore --staged .` (only unstages), `git push --force-with-lease` (the safe
   form), `rm -r` without `-f` (it prompts).
 - **`.pem` blocks public certificates too.** `openssl x509 -in cert.pem` is a known false positive; the
-  extension does not say which half it is. Rename public certs `.crt` or drop `pem` from `KEY_EXTENSION`.
+  extension does not say which half it is. Rename public certs `.crt` or drop `pem` from `_KEY_EXTS` (in the
+  "POLICY TABLES" section of the hook, not the `EDIT THESE` block).
 - **A reader with a bare variable blocks even in a loop.** `for f in src/*.py; do wc -l $f; done` is refused;
   `wc -l src/*.py` is not. The agent rephrases in one turn. The alternative is leaving `cat $F` open.
 - **`cat script.py | python3`** is refused as "script on stdin"; `python3 script.py` is not.
@@ -237,8 +238,10 @@ These are not bugs in the regex. They are the reasons layers 1 and 2 exist.
   how secrets are legitimately *used*.
 - **Harness-level fail-open.** If `uv` is not installed, if the hook times out (15s in the example settings), or
   if the hook's command line fails to parse, Claude Code treats it as a non-blocking error and the call goes
-  through. The `FAIL_CLOSED` switch only covers exceptions *inside* the script. This is the strongest argument
-  for `permissions.deny`: it has no process to fail.
+  through, unless the handler sets `"onFailure": "block"` (Claude Code v2.1.295 or later; the example settings
+  set it on the secrets hook). On an older version the field does nothing. The `FAIL_CLOSED` switch only covers
+  exceptions *inside* the script. This is the strongest argument for `permissions.deny`: it has no process to
+  fail.
 - **Committed secrets in history.** `git log -p` over a repo that once committed `.env` prints it. Rotate them.
 
 ## The seven things that will bite you

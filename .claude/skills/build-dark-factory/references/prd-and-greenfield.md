@@ -39,7 +39,7 @@ Read the PRD in full before asking a single question. Then map it:
 | the problem, and why it is worth solving | the framing at the top of `MISSION.md` |
 | who the users are | the person the E2E path is acted out as |
 | MVP scope, the capability areas | what triage is allowed to accept |
-| **non-goals** | **`MISSION.md` out-of-scope-forever, the most load-bearing list in the whole build** |
+| **non-goals**, sorted first (R2.1) | **permanent ("not ever") → `MISSION.md` out-of-scope-forever, the most load-bearing list in the whole build. Deferred ("not now") → the backlog, never the out-of-scope list, or the factory refuses that work when its issue comes up** |
 | success metrics | what the validation harness is ultimately arguing about |
 | open questions, anything marked TBD | a decision to be **proposed**, not a wall. The factory picks a defensible value, records it, and the merge is held for a human. It escalates only for the short list in `FACTORY_RULES.md` §7.2 - read "open" as "I have not decided", never as "you may not propose" |
 

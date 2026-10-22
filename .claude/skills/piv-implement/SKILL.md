@@ -103,7 +103,9 @@ Before completing, confirm each of these and record the result — tick nothing 
 
 Write a short report to `.claude/reports/<plan-slug>-report.md` (and print the summary). This is what the PR body
 and the `piv-review-pr` gate read — especially the **deviations** (a documented deviation is an *intentional*
-decision the reviewer should not flag):
+decision the reviewer should not flag). **`Status: COMPLETE` only when every required check is `PASS`**; any
+required check that is `FAIL` or `NOT RUN` (missing tool, wrong directory, timeout, retry cap) makes it
+`Status: PARTIAL`, with the reason under *Issues encountered*:
 
 ```markdown
 # Implementation Report — <feature>

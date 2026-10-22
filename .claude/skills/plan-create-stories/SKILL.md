@@ -1,7 +1,7 @@
 ---
 name: plan-create-stories
 description: Decomposes a finished PRD into a flat backlog of small, engineer-ready tickets with acceptance criteria in Jira, GitHub Issues, or a local file. Use for a simple PRD with no architecture doc yet; for an epic plus architecture, use piv-slice-epic instead.
-argument-hint: "<prd-path> --platform <jira|github|local> [--arch <architecture-path>] [--project KEY] [--epic KEY] [--milestone NAME]"
+argument-hint: "<prd-path> --platform <jira|github|local|other:NAME> [--arch <architecture-path>] [--project KEY] [--epic KEY] [--milestone NAME]"
 ---
 
 # Create Stories: PRD → Ticket Backlog
@@ -22,15 +22,14 @@ Parse them from `$ARGUMENTS`:
 | Argument | Required | Meaning |
 |----------|----------|---------|
 | `<prd-path>` | yes | The PRD from `plan-create-prd` — a file path, or a tracker URL/key to fetch |
-| `--platform` | yes | `jira`, `github`, or `local` (a markdown file under `docs/tickets/` — solo work, no tracker) |
+| `--platform` | yes | `jira`, `github`, `local` (a markdown file under `docs/tickets/` — solo work, no tracker), or `other:<tracker>` (e.g. `other:linear`, `other:gitlab`, `other:notion`) |
 | `--arch` | no | Architecture doc from `plan-architecture`; supplies phase grouping. An `## Architecture` section inside the PRD counts too |
 | `--project` | jira: yes | Jira project key (e.g. `HELP`) |
 | `--epic` | jira: optional | Epic key to parent the tickets under (e.g. `HELP-1`) |
 | `--milestone` | github: optional | Milestone to attach the issues to |
 
-If `--platform` is missing, or `--project` is missing for Jira, **stop and ask** — do not guess. Another tracker
-(Linear, GitLab, Notion…): same decomposition, same confirmation, then create through that tracker's CLI/MCP
-with the Jira field mapping.
+If `--platform` is missing or not one of those values, or `--project` is missing for Jira, **stop and ask** — do
+not guess.
 
 ## Workflow
 
@@ -80,10 +79,31 @@ given. Map group → label (or the epic); acceptance criteria → description. C
 
 **`github`:** `gh issue create --title "..." --body "..." [--label <group>] [--milestone "..."]`; acceptance
 criteria as a markdown checklist in the body; create a missing label with `gh label create`. Capture each issue
-number/URL. (GitLab: the same motion with `glab issue create`.)
+number/URL.
 
-**`local`:** write `docs/tickets/<prd-slug>.md` (slug from the PRD filename), one `###` per ticket with
-description, acceptance criteria, and group. Ask before overwriting an existing file.
+**`other:<tracker>`** (Linear, GitLab, Notion…): create each ticket through that tracker's CLI or MCP (GitLab:
+`glab issue create`) with the Jira field mapping: group → label or parent, acceptance criteria → description.
+If no tool in this session reaches that tracker, stop and say so — or offer `--platform local`. Capture each
+created key/URL.
+
+**`local`:** write `docs/tickets/<prd-slug>.md` — slug from the PRD filename, or for a tracker URL/key from the
+key plus the PRD title (`help-12-onboarding-flow`), lowercase with every non-`[a-z0-9-]` character as `-`. Use
+the same `TICKET-n` layout `piv-slice-epic` writes, because that is what `piv-plan-implementation` reads:
+
+```
+# Ticket Breakdown — <PRD title>
+
+## Epic summary — the PRD's problem and MVP in 2-3 lines
+## Tickets
+   ### TICKET-1 — <title>
+   - Description
+   - Acceptance criteria — a testable checklist
+   - Group: <capability area / phase>
+   - Depends on: <none / TICKET-x>
+   ### TICKET-2 — ...
+```
+
+Ask before overwriting an existing file.
 
 If a create fails midway, stop, report what was created so far, and don't retry blindly — duplicates are worse
 than a gap.

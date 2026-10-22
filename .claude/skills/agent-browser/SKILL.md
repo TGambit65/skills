@@ -12,13 +12,17 @@ Fast browser automation CLI for AI agents. Chrome/Chromium via CDP with accessib
 
 > **Vendored stub.** This file is the discovery stub shipped by the upstream project,
 > `vercel-labs/agent-browser` (`skills/agent-browser/SKILL.md`), lightly edited for this repo. To refresh it, diff
-> against upstream or run `npx skills add vercel-labs/agent-browser` in a scratch directory and copy the result
-> over. `hidden: true` is an upstream CLI flag (hides the stub from `agent-browser skills list`); Claude Code
+> against a pinned upstream release tag or commit, or run `npx skills@<version> add vercel-labs/agent-browser`
+> (an exact `skills` version the user approves, never the floating `latest`) in a scratch directory, check the
+> result against that tag, and copy it over.
+> `hidden: true` is an upstream CLI flag (hides the stub from `agent-browser skills list`); Claude Code
 > ignores unknown frontmatter, so here the description is still always loaded.
 
 ## Install and run
 
-Prefer the globally installed binary: `npm i -g agent-browser && agent-browser install`, then `agent-browser …`.
+Prefer the globally installed binary, pinned to a version the user approves:
+`npm i -g agent-browser@<version> && agent-browser install`, then `agent-browser …`. Never install the floating
+`latest` tag.
 
 If `agent-browser` is not on `PATH`, **do not silently fall back to `npx agent-browser`** - that downloads and
 executes whatever version is currently published, unpinned, with the user's credentials. Tell the user it is

@@ -32,6 +32,11 @@ Read **both** fully: the epic (goal, user stories, acceptance criteria, out-of-s
 decisions (approach, stack, data model, missing pieces, spikes), fetching the separate page when there is one.
 The slicing has to respect those calls.
 
+**Greenfield, PRD only:** the architecture decisions come from the PRD's `## Architecture` section or an
+architecture page it links. If it has neither, stop and recommend running `plan-architecture` on the PRD first —
+a PRD is intent, and slicing without the seams and data model invents them per ticket. Do not decide the
+architecture here. (For a flat backlog straight from a PRD, `plan-create-stories` is the tool.)
+
 ### Step 2 — Orient on the code surface (if not already primed)
 
 Slicing needs enough codebase awareness to judge what's independent vs dependent — file overlap, shared seams.

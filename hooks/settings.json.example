@@ -45,6 +45,7 @@
           {
             "type": "command",
             "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/pre_tool_use_secrets.py\"",
+            "onFailure": "block",
             "timeout": 15,
             "statusMessage": "Checking guardrails..."
           }

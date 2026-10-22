@@ -16,9 +16,17 @@ below is one of those two moves.
 Nothing is written until this is settled. Resolve the findings path (next section) to learn
 where the notes live, then, in that folder, run `git rev-parse --show-toplevel`.
 
-- **Already in git**, either its own repo or tracked by a parent one. Commit or stash
-  anything outstanding, then `git checkout -b second-brain-fix`, and commit after every
-  batch. Say which repo you are in and what the branch covers.
+- **Already in git**, either its own repo or tracked by a parent one. A repo that merely
+  *contains* the folder is not a backup: check that the notes themselves are tracked
+  (`git ls-files -- <notes-folder> | head` lists them, and
+  `git ls-files --others --exclude-standard -- <notes-folder>` plus
+  `git check-ignore -q <notes-folder>` show none untracked or ignored). If they are tracked,
+  commit or stash anything outstanding so the baseline is committed, then
+  `git checkout -b second-brain-fix`, and commit after every batch. Say which repo you are in
+  and what the branch covers. If some or all of the notes are untracked or ignored, the
+  branch gives no rollback for them: offer to add and commit them as the baseline, and if the
+  user declines, treat it as **Not in git** below and take the informed no-backup
+  confirmation.
 - **Not in git.** Ask, in these words or close to them:
 
   > Your notes are not in git, so there is no way to undo a batch. Want me to run `git init`

@@ -200,7 +200,11 @@ is in. Screenshot before answering anything.
 subagent, it can close the turn (`wait` exits 0, `TURN_COMPLETE`) while that work
 is still running and the actual answer arrives turns later. So read the final
 message before acting on it. If it describes work in progress rather than a
-result, call `wait` again rather than treating exit 0 as done.
+result, call `wait --since <RECORDS>` with the `RECORDS:` count that `wait` just
+printed. A plain second `wait` can find the same closed turn and print the same
+message as `TURN_COMPLETE`; with `--since` it exits 0 only on new assistant output
+after that count, and otherwise exits 1 with `NO_NEW_RESULT`. Report completion
+only from a message that carries the result.
 
 `reads` is how you audit a driven agent instead of trusting it. For a memory or
 recall demo, `--match CLAUDE.md` settles whether the agent answered from context or

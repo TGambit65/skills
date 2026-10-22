@@ -78,7 +78,9 @@ For each changed or new file, analyze for:
 - Confirm type errors are legitimate (run the project's type-checker if it has one)
 - Validate security concerns with context
 - **Report only high-confidence issues.** Anything you could not confirm goes in the report marked
-  `verification: Unverified` and does not count toward the verdict.
+  `verification: Unverified` and does not count toward the verdict — **except security**: a security concern you
+  could neither confirm nor rule out is not parked as Unverified; it is reported as a Critical finding and blocks
+  (see Severity). `piv-review-pr` applies the same rule.
 
 ## Severity
 
@@ -95,7 +97,9 @@ Security findings: exploitable **or unverified** → Critical (when in doubt, Cr
 
 ## Output Format
 
-Save a new file to `.claude/code-reviews/<branch-or-topic>-<YYYY-MM-DD>.md` (create the folder if needed).
+Save a new file to `.claude/code-reviews/<slug>-<YYYY-MM-DD>.md` (create the folder if needed), where `<slug>` is
+the branch or topic with every `/`, `\` and other non-`[A-Za-z0-9._-]` character replaced by `-`
+(`feature/piv/review` → `feature-piv-review`), so the file sits directly in `.claude/code-reviews/`.
 This file is what `piv-fix-review-findings` reads next.
 
 **Stats** (from `git diff --shortstat` and the untracked list — fill in the real numbers):

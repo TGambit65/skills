@@ -44,7 +44,7 @@ Usage
   session_watch.py dir      --repo <path>
   session_watch.py sessions --repo <path>
   session_watch.py mark     --repo <path>
-  session_watch.py wait     --repo <path> [--timeout 900] [--idle 45]
+  session_watch.py wait     --repo <path> [--timeout 900] [--idle 45] [--since N]
   session_watch.py last     --repo <path>
   session_watch.py reads    --repo <path> [--since N] [--match CLAUDE.md]
 
@@ -307,6 +307,14 @@ def cmd_wait(a) -> int:
             continue
 
         if not turn_in_flight(recs):
+            # With --since, a closed turn only counts if it said something NEW after
+            # that baseline. A second `wait` on a parent that already closed its turn
+            # (a dispatched subagent still running) would otherwise go quiet, find the
+            # same closed turn, and print the same final message as TURN_COMPLETE:
+            # completion with no result. Keep waiting for the turn that carries it.
+            if a.since and not assistant_texts(recs[a.since:]):
+                time.sleep(a.poll)
+                continue
             _print_final(recs, f"quiet {int(idle)}s, turn closed")
             return 0
 
@@ -328,6 +336,10 @@ def cmd_wait(a) -> int:
         print("window, read the command, and answer it deliberately.")
         return 2
 
+    if a.since:
+        print(f"NO_NEW_RESULT: nothing new after record {a.since} in {a.timeout}s.")
+        print("The dispatched work has not reported back yet. This is not completion.")
+        return 1
     print(f"TIMEOUT after {a.timeout}s.")
     print("Neither a completion record nor a quiet period appeared, so the agent")
     print("is probably still working. Screenshot before concluding anything.")
@@ -348,7 +360,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["dir", "sessions", "mark", "wait", "last", "reads"])
     ap.add_argument("--repo", required=True)
-    ap.add_argument("--since", type=int, default=0, help="baseline index from `mark`")
+    ap.add_argument("--since", type=int, default=0,
+                    help="baseline record count from `mark` or a previous `wait`'s RECORDS; "
+                         "`wait` then needs new assistant output after it")
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--idle", type=int, default=45,
                     help="seconds of silence before deciding done-or-blocked")

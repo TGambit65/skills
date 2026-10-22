@@ -97,6 +97,11 @@ def audit(msg: str) -> None:
         pass  # logging must never be the reason a stop does not happen
 
 
+# `git` plus any global options before the subcommand: -C <path>, -c <key=value>,
+# --git-dir/--work-tree/--namespace <value>, and bare flags such as --no-pager.
+_GIT = (r"\bgit(?:\s+(?:-[Cc]\s+\S+|--(?:git-dir|work-tree|namespace|exec-path|config-env)"
+        r"(?:=|\s+)\S+|--?[\w-]+(?:=\S+)?))*\s+")
+
 # Commands this will never approve on its own. The point is not to be a security
 # boundary, because a determined mistake can be spelled around any regex. The
 # point is that the class of thing you most regret approving while away is small,
@@ -115,13 +120,22 @@ REFUSE = [
     (r"\bfind\b.*\s-delete\b", "deletes files"),
     # Git. Pushing is outward-facing (SKILL.md hard rule 6), so every push stops,
     # not just a forced one; the forced form is listed first for the message.
-    (r"\bgit\s+push\b.*(--force|-f\b|\s\+\w)", "force push"),
-    (r"\bgit\s+push\b", "pushes to a remote (outward-facing: confirm it yourself)"),
-    (r"\bgit\s+reset\s+--hard\b", "discards working tree"),
-    (r"\bgit\s+clean\b.*-\w*[fdx]", "deletes untracked files"),
-    (r"\bgit\s+(checkout|restore)\s+(--\s+)?\.(\s|$)", "discards working tree"),
-    (r"\bgit\s+branch\s+(-D|--delete\s+--force)\b", "force-deletes a branch"),
-    (r"\bgit\s+stash\s+(drop|clear)\b", "discards stashed work"),
+    # _GIT skips git's global options (`git -C repo push`, `git -c k=v push`), which
+    # otherwise put a word between `git` and the subcommand and dodge every rule.
+    (_GIT + r"push\b.*(--force|-f\b|\s\+\w)", "force push"),
+    (_GIT + r"push\b", "pushes to a remote (outward-facing: confirm it yourself)"),
+    (_GIT + r"reset\s+--hard\b", "discards working tree"),
+    (_GIT + r"clean\b.*-\w*[fdx]", "deletes untracked files"),
+    # Working-tree discards name a path as often as `.`: `git checkout -- src/app.py`,
+    # `git checkout HEAD .`, `git restore src/app.py`. `git restore --staged` only
+    # unstages and stays allowed, unless it also says --worktree. Case-sensitive
+    # inside (?-i:) because `-s` is --source (a discard) and `-S` is --staged.
+    (_GIT + r"checkout\b[^;&|]*\s--(\s|$)", "discards working tree"),
+    (_GIT + r"checkout\s+(\S+\s+)?\.(\s|$)", "discards working tree"),
+    (_GIT + r"restore\b(?![^;&|]*\s(?-i:--staged|-S)\b)"
+     r"|" + _GIT + r"restore\b(?=[^;&|]*\s(?-i:--worktree|-W)\b)", "discards working tree"),
+    (_GIT + r"branch\s+(-D|--delete\s+--force)\b", "force-deletes a branch"),
+    (_GIT + r"stash\s+(drop|clear)\b", "discards stashed work"),
     # Privilege, network-to-shell, disks, machine.
     (r"\b(sudo|doas)\b|\bRunAs\b", "privilege escalation"),
     (r"\b(curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b[^|]*\|\s*(sudo\s+)?"

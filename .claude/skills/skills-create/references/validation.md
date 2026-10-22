@@ -12,7 +12,10 @@ it: **agent** (do it yourself, from the session) or **user** (needs a human at t
 ```bash
 ls -R .claude/skills/<name>
 grep -nE '`(references|templates|scripts|assets)/' .claude/skills/<name>/SKILL.md
-claude plugin validate .claude/skills   # parses every SKILL.md frontmatter; Claude Code ≥ 2.1.233
+claude plugin validate .                # only if the skill ships in a plugin: run it on the plugin root
+                                        # (where .claude-plugin/plugin.json lives), not on .claude/skills
+python3 tools/check_contracts.py        # in the skills repo that ships this skill: frontmatter, arguments,
+                                        # bundled-file refs across every skill
 ```
 
 ## Gate 2 — Description quality (agent)

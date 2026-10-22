@@ -151,6 +151,7 @@ other events or other hooks on the same event. Use `${CLAUDE_PROJECT_DIR}` in th
       { "matcher": "Edit|Write|Read|Bash",
         "hooks": [ { "type": "command",
                      "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/pre_tool_use_secrets.py",
+                     "onFailure": "block",
                      "timeout": 15 } ] }
     ]
   }

@@ -13,16 +13,21 @@ Turn the uncommitted work into atomic commits: one logical change per commit, ea
    section and follow it — those rules win over the defaults below. That file is where a project's specifics
    live; this skill stays general.
 
-1. **See what is uncommitted.** Run `git status --porcelain` (shows untracked files too), then `git diff HEAD`
-   (tracked changes). Read both before staging anything. Nothing listed → say so and stop.
+1. **See what is uncommitted — paths first, contents second.** Run `git status --porcelain --untracked-files=all`
+   (tracked and untracked paths, no contents). Nothing listed → say so and stop. Screen those paths against the
+   secret list in step 2 **before reading any diff**, so a modified `.env` is never printed. Then read only the
+   allowed paths: `git diff HEAD -- <allowed tracked paths>` for tracked changes, and for each allowed untracked
+   file a content scan that prints only `file:line`, never the matching text
+   (`grep -HnIE '<patterns from step 2>' -- <file> | cut -d: -f1,2`).
 
-2. **Stage deliberately — by explicit path, never `git add -A` / `git add .` blindly.** Screen the list from
+2. **Stage deliberately — by explicit path, never `git add -A` / `git add .` blindly.** Screen the paths from
    step 1 first:
    - **Secrets — refuse to stage** unless the user explicitly asks for that exact file: `.env*` (committed
      templates like `.env.example` are fine), `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `credentials*`, `*.p12`,
-     `.netrc`. Also scan the diff for secret-looking content (`-----BEGIN … PRIVATE KEY-----`, `AKIA…`, `ghp_…`,
-     `sk-…`, long literals assigned to `*KEY`/`*TOKEN`/`*SECRET`/`*PASSWORD`). Name the file and stop for it. Never print, cat, echo, grep or quote the contents of an env or secret file —
-     not even masked; name the file or the key, never the value.
+     `.netrc`. Also scan the allowed diffs and untracked files for secret-looking content
+     (`-----BEGIN … PRIVATE KEY-----`, `AKIA…`, `ghp_…`, `sk-…`, long literals assigned to
+     `*KEY`/`*TOKEN`/`*SECRET`/`*PASSWORD`). Name the file and stop for it. Never print, cat, echo, grep or quote
+     the contents of an env or secret file — not even masked; name the file or the key, never the value.
    - **Junk — leave unstaged** unless explicitly asked: `node_modules/`, `dist/`, `build/`, `__pycache__/`,
      `*.pyc`, `.DS_Store`, `*.log`, coverage output. Suggest a `.gitignore` entry rather than adding one yourself.
    - **Agent-written folders.** Committed **with the work by default**: `.claude/plans/`, `.claude/reports/`,

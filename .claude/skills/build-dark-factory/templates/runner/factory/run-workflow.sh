@@ -229,11 +229,33 @@ HOLDOUT_DENY="Read($FACTORY_HOLDOUT_DIR/**) Glob($FACTORY_HOLDOUT_DIR/**) Grep($
 # into a plan, a PR body or a review summary, and two of those are posted to GitHub.
 # Built from FACTORY_SECRET_FILES so the one list in config.sh governs both directions.
 # Read only: a Bash(cat .env) rule is one `head` away from useless and would read as
-# protection. The Bash allowlists per node are the actual leash on shell access.
+# protection.
+#
+# WHAT THIS DOES NOT COVER, said plainly so nobody counts it twice: a Read() rule binds the
+# Read tool and nothing else. A node that can execute code -- implement has
+# Bash(python -c:*), and implement and fix both run the quick gate over code they just
+# wrote -- can open any file this OS user can, by absolute path, whatever this list says.
+# Dropping `python -c` would not close that; the quick gate is the same door. The real
+# control is that the secret is not on the node's filesystem: build nodes work in a fresh
+# worktree, where an ignored file does not exist unless someone copies it in, and
+# assert_no_secrets_in_worktree() refuses to run them if one is there. A secret that must
+# not reach a code-running node does not belong in this checkout at all
+# (templates/runner/README.md, "Secret files").
 SECRET_DENY=""
 for _sf in $FACTORY_SECRET_FILES; do
   SECRET_DENY="$SECRET_DENY Read($_sf)"
 done
+
+assert_no_secrets_in_worktree() {   # assert_no_secrets_in_worktree <worktree>
+  # Run before any node that can execute code. An ignored file is absent from a fresh
+  # worktree; if one is present, something copied it there, and the Read() deny above is
+  # all that would stand between it and `python -c`.
+  local _sf
+  for _sf in $FACTORY_SECRET_FILES; do
+    [ -e "$1/$_sf" ] && escalate "PREFLIGHT: $1/$_sf exists in the build worktree; a code-running node could read it past the Read() deny. Remove it from the worktree."
+  done
+  return 0
+}
 
 node() {                # node <name> <model> <prompt-file> <allowed-tools>
   local name="$1" model="$2" prompt="$3" tools="$4"
@@ -283,7 +305,8 @@ node() {                # node <name> <model> <prompt-file> <allowed-tools>
   # flag this CLI does not know is not rejected, it falls through into the prompt.
   # Another agent: rewrite this block to its contract (automation.md, table 1).
   #
-  # shellcheck disable=SC2086 -- HOLDOUT_DENY and SECRET_DENY are deliberate word lists.
+  # HOLDOUT_DENY and SECRET_DENY are deliberate word lists, split on purpose.
+  # shellcheck disable=SC2086
   if ! "$AGENT" -p "$(cat "$rendered")" \
         --model "$model" \
         --allowedTools "$tools" \
@@ -413,6 +436,7 @@ case "$WORKFLOW" in
     prepare_worktree_path "$WT"
     git rev-parse --verify --quiet "$BRANCH" >/dev/null && git branch -D "$BRANCH" >/dev/null 2>&1 || true
     git worktree add "$WT" -b "$BRANCH" "$BASE" >/dev/null 2>&1 || escalate "could not create worktree $WT"
+    assert_no_secrets_in_worktree "$WT"
     python factory/state.py set "$TARGET" state=in-progress || escalate "illegal state transition"
 
     (
@@ -711,6 +735,7 @@ case "$WORKFLOW" in
     WT=".worktrees/f$ISSUE_NUM"
     prepare_worktree_path "$WT"
     git worktree add "$WT" "$BRANCH" >/dev/null 2>&1 || escalate "could not check out $BRANCH"
+    assert_no_secrets_in_worktree "$WT"
 
     ( cd "$WT" && node fix "$MODEL_CHEAP" "$ROOT/factory/prompts/fix.md" \
         "Read,Glob,Grep,Edit,Write,Bash($FACTORY_VALIDATE_QUICK)" ) \

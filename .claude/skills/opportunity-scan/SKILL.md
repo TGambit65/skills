@@ -51,7 +51,8 @@ question at a time.
 
 ## Steps — keep them literal; this is the fragile part (meta-prompting)
 
-1. **Learn your own capabilities.** Read the agent's capability docs (input 3). Write a short internal list of
+1. **Learn your own capabilities.** Read the agent's capability docs: input 3 if the user supplied it; otherwise
+   identify which agent you are running as and resolve its docs yourself, as input 3 describes. Write a short internal list of
    *this* agent's extension points (rules, skill, hook, subagent, MCP/tool, automation/workflow, whatever the docs
    describe).
 2. **Read the target** — branch on what input 1 was:

@@ -55,13 +55,15 @@ the check; its 3-attempt cap applies; append the outcome to the implementation r
 
 ## Step 5: Review — pre-commit technical review
 
-Run the `piv-review-changes` skill. It writes `.claude/code-reviews/<name>.md`. Any **Critical or High** finding
-→ stop the loop and point at the review file (the human's next step is `piv-fix-review-findings`). Medium/Low
-findings go in the summary and do not block the commit.
+Run the `piv-review-changes` skill. It must **complete and write** `.claude/code-reviews/<name>.md`; a review that
+did not run, errored, or left no file is a stop, never "no findings". Any **Critical or High** finding → stop the
+loop and point at the review file (the human's next step is `piv-fix-review-findings`). Medium/Low findings go in
+the summary and do not block the commit.
 
 ## Step 6: Commit — save the work
 
-Reached only when Step 4 is PASS and Step 5 has no Critical/High finding. Run the `piv-commit` skill.
+Reached only when Step 4 is PASS, Step 5 completed and its review file exists, and that review has no
+Critical/High finding. Run the `piv-commit` skill.
 
 ---
 
@@ -94,6 +96,7 @@ Fill from actual results. A step that did not run is `NOT RUN`; leave a field bl
 
 **Next steps:**
 - Confirm the assumptions above; amend the plan's `AMENDMENTS` section if any was wrong
-- If stopped: fix what stopped it (`piv-fix-review-findings` for review findings), then `piv-validate` → `piv-commit`
+- If stopped: fix what stopped it (`piv-fix-review-findings` for review findings), then `piv-validate` →
+  `piv-review-changes` (a fresh review of the fixed tree) → `piv-commit`
 - If committed: `piv-create-pr` to push and open the PR
 - Continue with the next feature
