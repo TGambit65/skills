@@ -19,8 +19,10 @@ where the notes live, then, in that folder, run `git rev-parse --show-toplevel`.
 - **Already in git**, either its own repo or tracked by a parent one. A repo that merely
   *contains* the folder is not a backup: check that the notes themselves are tracked
   (`git ls-files -- <notes-folder> | head` lists them, and
-  `git ls-files --others --exclude-standard -- <notes-folder>` plus
-  `git check-ignore -q <notes-folder>` show none untracked or ignored). If they are tracked,
+  `git ls-files --others --exclude-standard -- <notes-folder>` (untracked) plus
+  `git ls-files --others --ignored --exclude-standard -- <notes-folder>` (ignored, which the
+  first command hides, even inside a tracked folder) list no file a batch could edit; an
+  ignored app cache such as `.obsidian/` is fine, an ignored note is not). If they are tracked,
   commit or stash anything outstanding so the baseline is committed, then
   `git checkout -b second-brain-fix`, and commit after every batch. Say which repo you are in
   and what the branch covers. If some or all of the notes are untracked or ignored, the
