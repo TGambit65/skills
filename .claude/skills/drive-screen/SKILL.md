@@ -1,6 +1,6 @@
 ---
 name: drive-screen
-description: Drives the real desktop (Windows, macOS, Linux): focus, type, paste, click, scroll, screenshot. Use for screen or day setup, arranging apps and repos, demo prep, testing desktop apps with no headless harness, or steering a Claude Code session in another window. Triggers: "set up my screen", "get my demo ready", "drive the screen", "control my desktop", "open these repos and start", "test this desktop app", "run this on my machine and show me". Not for browser automation.
+description: "Drives the real desktop (Windows, macOS, Linux): focus, type, paste, click, scroll, screenshot. Use for screen or day setup, arranging apps and repos, demo prep, testing desktop apps with no headless harness, or steering a Claude Code session in another window. Triggers: \"set up my screen\", \"get my demo ready\", \"drive the screen\", \"control my desktop\", \"open these repos and start\", \"test this desktop app\", \"run this on my machine and show me\". Not for browser automation."
 ---
 
 # Drive the screen

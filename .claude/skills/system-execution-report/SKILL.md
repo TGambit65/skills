@@ -1,6 +1,6 @@
 ---
 name: system-execution-report
-description: Reflects on a just-finished implementation: what diverged from the plan and why, and what was skipped. Extends piv-implement's report if one exists, otherwise writes its own. Use as the input to system-evolution-review.
+description: "Reflects on a just-finished implementation: what diverged from the plan and why, and what was skipped. Extends piv-implement's report if one exists, otherwise writes its own. Use as the input to system-evolution-review."
 ---
 
 # Execution Report

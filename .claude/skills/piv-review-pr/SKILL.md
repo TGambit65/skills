@@ -1,6 +1,6 @@
 ---
 name: piv-review-pr
-description: Reviews an open pull request with fresh eyes: fetches it, runs validation, ranks issues by severity, posts the review to GitHub, saves a report. The agentic gate before a human approves. Use after piv-create-pr.
+description: "Reviews an open pull request with fresh eyes: fetches it, runs validation, ranks issues by severity, posts the review to GitHub, saves a report. The agentic gate before a human approves. Use after piv-create-pr."
 argument-hint: "<pr-number | pr-url | branch> [--approve | --request-changes]"
 ---
 

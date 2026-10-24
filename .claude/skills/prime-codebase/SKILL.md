@@ -1,6 +1,6 @@
 ---
 name: prime-codebase
-description: Orients the agent in a codebase before planning or implementing: bounded structure map, core docs, key files, git state. Use at session start or when asked to "prime" or "load context". Optionally loads Jira issues and Confluence pages first.
+description: "Orients the agent in a codebase before planning or implementing: bounded structure map, core docs, key files, git state. Use at session start or when asked to \"prime\" or \"load context\". Optionally loads Jira issues and Confluence pages first."
 argument-hint: "[ticket keys/URLs] [doc page ids/URLs]"
 ---
 

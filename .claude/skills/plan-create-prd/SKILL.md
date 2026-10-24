@@ -1,6 +1,6 @@
 ---
 name: plan-create-prd
-description: Interviews the user into a problem-first, product-level PRD: thesis (why build it), falsifiable hypothesis, target user & JTBD, MVP, success metrics, non-goals, open questions. Use at the start of a greenfield product or a new epic to capture intent (what/why), never engineering decisions (how) — that is plan-architecture.
+description: "Interviews the user into a problem-first, product-level PRD: thesis (why build it), falsifiable hypothesis, target user & JTBD, MVP, success metrics, non-goals, open questions. Use at the start of a greenfield product or a new epic to capture intent (what/why), never engineering decisions (how) — that is plan-architecture."
 argument-hint: "[product idea] · [optional: paths to research / reference docs to ground in] (blank = start with questions)"
 ---
 

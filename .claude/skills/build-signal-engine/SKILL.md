@@ -1,6 +1,6 @@
 ---
 name: build-signal-engine
-description: Builds a signal engine: reads every source someone cares about daily (changelogs, communities, feeds, videos, papers), decides on every item, hands an LLM only what survives, and delivers one digest. Interviews the user, then builds it into their repo stage by stage, proven on real data. Use for keeping up with AI or a field without doomscrolling, an AI news digest, daily briefing, content engine, research or competitor monitor, changelog watcher, or "something that reads everything and tells me what matters"; also on signal vs noise, information diet, or falling behind.
+description: "Builds a signal engine: reads every source someone cares about daily (changelogs, communities, feeds, videos, papers), decides on every item, hands an LLM only what survives, and delivers one digest. Interviews the user, then builds it into their repo stage by stage, proven on real data. Use for keeping up with AI or a field without doomscrolling, an AI news digest, daily briefing, content engine, research or competitor monitor, changelog watcher, or \"something that reads everything and tells me what matters\"; also on signal vs noise, information diet, or falling behind."
 argument-hint: "[optional: path/to/repo]"
 arguments: [repo]
 ---

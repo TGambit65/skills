@@ -1,6 +1,6 @@
 ---
 name: second-brain-audit
-description: Audits a second brain, notes folder, vault, or agent memory for facts that quietly stopped being true: checks each current-sounding claim the agent loads every session against the freshest evidence, then fixes the worst location so it stops recurring. Use when an assistant gives an outdated answer, when notes or memory files may be stale, when a vault needs checking for contradictions, or when someone mentions memory rot or state versus event.
+description: "Audits a second brain, notes folder, vault, or agent memory for facts that quietly stopped being true: checks each current-sounding claim the agent loads every session against the freshest evidence, then fixes the worst location so it stops recurring. Use when an assistant gives an outdated answer, when notes or memory files may be stale, when a vault needs checking for contradictions, or when someone mentions memory rot or state versus event."
 argument-hint: "[path-to-notes-folder]"
 arguments: [notes]
 ---

@@ -1,6 +1,6 @@
 ---
 name: ablate-ai-layer
-description: Measures whether a repository's AI instructions still earn their place: runs the same real task repeatedly with the layer intact and stripped, in throwaway git worktrees, then grades every rule against what changed. Agent-agnostic: CLAUDE.md, AGENTS.md, .claude/, cursor, cline, windsurf and copilot rules. Use when the user wants to prune, audit, shrink or delete their CLAUDE.md, cursor rules or agent instructions, asks whether their rules are still needed or their context is bloated, or mentions ablating, ablation, or testing the agent without its instructions.
+description: "Measures whether a repository's AI instructions still earn their place: runs the same real task repeatedly with the layer intact and stripped, in throwaway git worktrees, then grades every rule against what changed. Agent-agnostic: CLAUDE.md, AGENTS.md, .claude/, cursor, cline, windsurf and copilot rules. Use when the user wants to prune, audit, shrink or delete their CLAUDE.md, cursor rules or agent instructions, asks whether their rules are still needed or their context is bloated, or mentions ablating, ablation, or testing the agent without its instructions."
 ---
 
 # Ablate the AI layer

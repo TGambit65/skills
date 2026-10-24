@@ -1,6 +1,6 @@
 ---
 name: build-dark-factory
-description: Builds a dark factory around a PRD: a repo that takes issues in and ships validated code out with nobody at the keyboard, built component by component into the user's actual repo, agnostic to the coding agent underneath. Requires a PRD and does not write one. Use when the user wants a dark factory, an autonomous or self-driving repository, a software factory, an agent that ships its own code, an unattended or overnight coding loop, lights-out coding, autonomous PRs, a repo that maintains itself, or asks how to reach level 4 or 5 of AI coding autonomy.
+description: "Builds a dark factory around a PRD: a repo that takes issues in and ships validated code out with nobody at the keyboard, built component by component into the user's actual repo, agnostic to the coding agent underneath. Requires a PRD and does not write one. Use when the user wants a dark factory, an autonomous or self-driving repository, a software factory, an agent that ships its own code, an unattended or overnight coding loop, lights-out coding, autonomous PRs, a repo that maintains itself, or asks how to reach level 4 or 5 of AI coding autonomy."
 argument-hint: "[path/to/product.prd.md] [optional: path/to/repo]"
 ---
 

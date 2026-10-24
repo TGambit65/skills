@@ -1,6 +1,6 @@
 ---
 name: plan-architecture
-description: Interactive session deciding HOW to build a PRD, epic, brief, or idea: a CTO/staff-engineer advisor asks questions, proposes 2–3 approaches with trade-offs, recommends stack, data shape and boundaries, and flags spikes for risky calls. Writes a high-level architecture decision doc (tracker page linked to the epic, Architecture section in the PRD, or architecture.md), not a per-ticket plan (piv-plan-implementation). Needs a human in the loop.
+description: "Interactive session deciding HOW to build a PRD, epic, brief, or idea: a CTO/staff-engineer advisor asks questions, proposes 2–3 approaches with trade-offs, recommends stack, data shape and boundaries, and flags spikes for risky calls. Writes a high-level architecture decision doc (tracker page linked to the epic, Architecture section in the PRD, or architecture.md), not a per-ticket plan (piv-plan-implementation). Needs a human in the loop."
 argument-hint: "[path to PRD / epic / brief — or free-form idea] · [optional: paths to reference docs to ground in]"
 ---
 

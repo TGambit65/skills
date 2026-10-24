@@ -1,6 +1,6 @@
 ---
 name: piv-run-full-loop
-description: Runs the whole PIV loop unattended from one feature description: prime, plan, implement, validate, review, commit. Use for a hands-off build.
+description: "Runs the whole PIV loop unattended from one feature description: prime, plan, implement, validate, review, commit. Use for a hands-off build."
 argument-hint: [feature-description]
 ---
 

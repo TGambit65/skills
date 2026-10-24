@@ -13,8 +13,10 @@ Zero dependencies. Python 3.8+.
 
 What it checks
 --------------
- 1. frontmatter      every skill dir has SKILL.md; `name` equals the dir name; `description`
-                     present and within Claude Code's 1024-char limit; `name` <= 64 chars.
+ 1. frontmatter      every skill dir has SKILL.md; every value is a well-formed YAML scalar
+                     (a strict parser rejects an unquoted `: ` or an unclosed quote or `[`);
+                     `name` equals the dir name; `description` present and within Claude
+                     Code's 1024-char limit; `name` <= 64 chars.
  2. arguments        every `arguments:` entry is used as `$name` in the body and vice versa.
  3. bundled-files    every `references/`, `templates/`, `scripts/` path a SKILL.md mentions exists
                      in that skill's folder (project-level `.claude/references/...` is exempt:
@@ -125,11 +127,57 @@ def parse_frontmatter(text: str) -> dict:
 
 
 def strip_quotes(s: str) -> str:
-    """Strip one pair of matching surrounding quotes."""
+    """Strip one pair of matching surrounding quotes, undoing YAML's escapes inside them."""
     s = s.strip()
-    if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
-        return s[1:-1]
+    if len(s) >= 2 and s[0] == s[-1] == '"':
+        return re.sub(r'\\(.)', r"\1", s[1:-1])
+    if len(s) >= 2 and s[0] == s[-1] == "'":
+        return s[1:-1].replace("''", "'")
     return s
+
+
+def scalar_error(value: str) -> "str | None":
+    """Why a frontmatter value is not a well-formed YAML scalar, or None.
+
+    Stdlib only, so it covers the shapes this repo writes (one-line or folded plain
+    scalars, quoted strings, flow sequences) rather than all of YAML. Claude Code reads
+    an unquoted `: ` leniently; a strict parser, as other agents' loaders use, does not.
+    """
+    v = value.strip()
+    if not v or v in ("|", ">", "|-", ">-"):
+        return None
+    if v[0] == '"':
+        body = v[1:]
+        end = re.search(r'(?<!\\)(?:\\\\)*"', body)
+        if not end or body[end.end():].strip():
+            return "unterminated or unescaped double-quoted string"
+        return None
+    if v[0] == "'":
+        body = v[1:].replace("''", "")
+        if not body.endswith("'") or "'" in body[:-1]:
+            return "unterminated single-quoted string"
+        return None
+    if v[0] in "[{":
+        depth, quote = 0, None
+        for i, ch in enumerate(v):
+            if quote:
+                quote = None if ch == quote else quote
+            elif ch in "\"'":
+                quote = ch
+            elif ch in "[{":
+                depth += 1
+            elif ch in "]}":
+                depth -= 1
+                if depth == 0 and v[i + 1:].strip():
+                    return "text after the closing bracket of a flow collection"
+        return "unclosed flow collection" if depth or quote else None
+    if v[0] in "]},#&*!%@`":
+        return f"plain scalar starts with the YAML indicator {v[0]!r}; quote it"
+    if ": " in v or v.endswith(":"):
+        return "unquoted ': ' inside a plain scalar; quote the value"
+    if " #" in v:
+        return "unquoted ' #' starts a comment and truncates the value; quote it"
+    return None
 
 
 def load_skills() -> dict[str, dict]:
@@ -158,6 +206,10 @@ def check_frontmatter(skills: dict, rep: Report) -> None:
         if not fm:
             rep.fail("frontmatter", where, "no YAML frontmatter")
             continue
+        for key, value in fm.items():
+            err = scalar_error(value)
+            if err:
+                rep.fail("frontmatter", where, f"`{key}` is not valid YAML: {err}")
         if strip_quotes(fm.get("name", "")) != name:
             rep.fail("frontmatter", where, f"name '{fm.get('name')}' != dir '{name}'")
         if len(name) > NAME_LIMIT:
