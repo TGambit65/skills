@@ -16,6 +16,7 @@ Exit 0 pass, 1 fail, 2 when the base cannot be read. Zero dependencies; Python 3
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -60,11 +61,18 @@ def parse(version: str) -> "tuple[int, ...] | None":
 def main(argv: "list[str]") -> int:
     """Compare the shipped paths and the version against the base ref."""
     base = argv[0] if argv else "origin/main"
+    rc, top = git("rev-parse", "--show-toplevel")
+    if rc != 0:
+        print("ERROR  not inside a git repository")
+        return 2
+    os.chdir(top.strip())   # diff paths and the manifest are both repo-root relative
     rc, _ = git("rev-parse", "--verify", "--quiet", f"{base}^{{commit}}")
     if rc != 0:
         print(f"ERROR  base ref {base!r} not found. In CI, check out with fetch-depth: 0.")
         return 2
-    rc, out = git("diff", "--name-only", f"{base}...HEAD")
+    # --no-renames: a rename otherwise lists only its new path, so moving a skill out of
+    # .claude/skills/ would read as "nothing shipped changed".
+    rc, out = git("diff", "--name-only", "--no-renames", f"{base}...HEAD")
     if rc != 0:
         print(f"ERROR  could not diff {base}...HEAD")
         return 2

@@ -140,6 +140,22 @@ def case_uncommitted_bump_counts(root: Path) -> int:
     return PASS
 
 
+def case_run_from_subdirectory(root: Path) -> int:
+    write(root, ".claude/skills/demo/SKILL.md", "changed\n")
+    write(root, ".claude-plugin/plugin.json", manifest("1.5.1"))
+    commit(root)
+    return PASS
+
+
+def case_skill_moved_out(root: Path) -> int:
+    # A rename shows only its new path unless renames are off, so a move out of .claude/skills/
+    # would read as "nothing shipped changed".
+    (root / "attic").mkdir()
+    run(root, "mv", ".claude/skills/demo/SKILL.md", "attic/SKILL.md")
+    commit(root)
+    return FAIL
+
+
 def case_unknown_base(root: Path) -> "tuple[int, tuple[str, ...]]":
     return ERROR, ("no-such-ref",)
 
@@ -159,6 +175,8 @@ CASES = [
     ("1.9.0 -> 1.10.0 compares numerically", case_numeric_not_lexical, {}),
     ("a pre-release suffix is refused", case_non_numeric_version, {}),
     ("an uncommitted bump in the working tree counts", case_uncommitted_bump_counts, {}),
+    ("it works when run from a subdirectory", case_run_from_subdirectory, {"cwd": "tools"}),
+    ("moving a skill out of .claude/skills/ still counts", case_skill_moved_out, {}),
     ("an unknown base ref is an error, not a pass", case_unknown_base, {}),
     ("a base with no manifest is a first release", case_base_without_manifest, {"with_manifest": False}),
 ]
@@ -168,7 +186,8 @@ def main() -> int:
     """Run every case and print one line each."""
     failed = 0
     for name, fn, opts in CASES:
-        root = fixture(**opts)
+        cwd = opts.get("cwd")
+        root = fixture(**{k: v for k, v in opts.items() if k != "cwd"})
         try:
             if fn is case_base_without_manifest:
                 write(root, ".claude-plugin/plugin.json", manifest("1.0.0"))
@@ -176,7 +195,9 @@ def main() -> int:
                 commit(root)
             result = fn(root)
             expect, args = result if isinstance(result, tuple) else (result, ())
-            got, out = check(root, *args)
+            if cwd:
+                (root / cwd).mkdir(parents=True, exist_ok=True)
+            got, out = check(root / cwd if cwd else root, *args)
             ok = got == expect
             failed += not ok
             print(f"{'PASS' if ok else 'FAIL'}  {name}  (exit {got}, wanted {expect})")
