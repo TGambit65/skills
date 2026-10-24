@@ -26,6 +26,9 @@ The loop runs unattended, so no step may stop and wait for a human. Tell every s
 - **Bounded retries only.** The single re-entry allowed is in Step 4. Never loop a step until it goes green.
 - **Local only.** The loop ends at a local commit: no push, force-push, rebase, reset or branch deletion, and
   never weaken a test or check to get green.
+- **A refused write is a stop.** The plan, report and review live under `.claude/`, which Claude Code protects;
+  headless, outside `auto` mode, those writes are refused. Stop at that step and report the refusal; never write
+  the file another way, and never move it out of `.claude/`, where the next step reads it.
 
 ---
 

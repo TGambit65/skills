@@ -16,12 +16,15 @@ Run every check this project has and report a single PASS/FAIL verdict.
 > Find your real commands in `package.json` scripts, `pyproject.toml`, `Makefile`, `justfile`,
 > `docker-compose.yml`, your CI workflow, or the README — then delete these and paste yours in.
 >
-> **Two things to get right, because they are the usual reason a checker silently lies:**
+> **Three things to get right, because they are the usual reason a checker silently lies:**
 > 1. **Working directory.** Many tools only discover their config from the current directory. If your
 >    config lives in `backend/pyproject.toml`, the command is `cd backend && uv run pytest`, not
 >    `uv run pytest` from the repo root.
 > 2. **Cross-platform.** Avoid POSIX-only idioms if anyone on the team is on Windows — `lsof`,
 >    `python3`, and background-then-`kill` are the common offenders.
+> 3. **Lint your code, not the installed skills.** Skills installed as files put their own scripts under
+>    `.claude/skills/`, and a repo-wide lint (`ruff check .`, `eslint .`) fails on them. Exclude `.claude/`
+>    in the linter's config (for ruff, `extend-exclude = [".claude"]`) rather than narrowing the command.
 >
 > **Until you do:** if a `REPLACE` placeholder is still in a step below, do not guess a command for it.
 > Report that check as `NOT RUN — piv-validate not configured` and say so in the verdict.

@@ -225,8 +225,43 @@ Two things deliberately ship as templates and expect an edit before first use:
 `piv-review-pr` will hand its deep pass to a `code-reviewer` subagent if you have one in `.claude/agents/`. Without
 it, the skill still works, it just does the review inline.
 
+**Installed as files, the skills bring their own scripts.** Several ship Python and shell under
+`.claude/skills/*/scripts/`, and a project-wide lint picks them up: in a test install, `ruff check .` reported 234
+findings, all in skill scripts, and `piv-validate` failed before it judged a line of the project's code. Exclude
+the folder from your linters (`extend-exclude = [".claude"]` under `[tool.ruff]`, `.claude/` in `.eslintignore`,
+and so on). The plugin install keeps them out of your repo, so it has no such problem.
+
 Everything else runs as-is. But read them anyway. A skill you haven't read is just a longer prompt you don't
 control.
+
+## Running the loop unattended
+
+`piv-run-full-loop` is built to run with nobody watching, for example `claude -p "/piv-run-full-loop <feature>"`.
+Two things in Claude Code decide whether it runs end to end. Both were found by running it headless against a
+real project, on Claude Code 2.1.310.
+
+**The plans, reports and reviews live in `.claude/`, and Claude Code protects that folder.** Eleven skills read or
+write there (`.claude/plans/`, `.claude/reports/`, `.claude/code-reviews/` and others). Interactively you are asked on
+the first write, and can allow edits to the project's `.claude` folder for the session. Headless, in the `default`
+and `acceptEdits` modes, the write is refused, and an allow rule does not change that: neither
+`Write(.claude/plans/**)` in `--allowedTools` nor `Edit(.claude/**)` in a settings file pre-approves a protected
+path. The loop then stops at step 2 with its plan unsaved. Run it with `--permission-mode auto`, where Claude Code's
+classifier reviews each protected write, or with `bypassPermissions` only inside an isolated, throwaway container.
+See [Claude Code's protected paths](https://code.claude.com/docs/en/permission-modes#protected-paths).
+
+**The `prime-*` skills run git commands as they load.** Those commands go through the same permission check as any
+other, so under a scoped allowlist the skill fails to load until they are on it:
+`Bash(git ls-files:*)`, `Bash(git ls-tree:*)`, `Bash(git log:*)` and `Bash(git status:*)`. The `wc`, `cut`,
+`sort` and `head` they pipe into are read-only and need no rule.
+
+```bash
+claude -p "/piv-run-full-loop <feature description>" \
+  --permission-mode auto \
+  --allowedTools "Read,Glob,Grep,Edit,Write,Skill,Agent,Bash(git ls-files:*),Bash(git ls-tree:*),Bash(git log:*),Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(<your test, type-check and lint commands>)" \
+  --max-budget-usd 10
+```
+
+The loop ends at a local commit on a feature branch. It never pushes.
 
 ## Checks
 
