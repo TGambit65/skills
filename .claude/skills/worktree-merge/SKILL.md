@@ -34,13 +34,19 @@ linter). Do not hardcode `pytest`/`mypy`/`pyright` — use whatever this repo ac
      ignored `worktrees/` folder are fine). Uncommitted changes would be carried into the integration branch and
      lost on rollback, and an untracked source or test file would sit in the tree while the suite runs, so it
      could pass on code that is not in any merged commit. Ask the user to commit, stash or remove them first.
-   - Store the current branch; it must not be one of the branches to merge.
+   - Store the **original** branch (the one the integration lands on in step 5); it must not be one of the
+     branches to merge. On an `integration-*` branch from an interrupted run, the current branch is NOT the
+     original: read it back with `git config --get branch.<integration>.integrationTarget` (step 2 records it),
+     and if that prints nothing, ask which branch the integration should land on. Never guess, and never take
+     the integration branch itself, or step 5 merges it into itself and deletes the branch you are on.
    - Every branch in the list exists: `git rev-parse --verify <branch>`.
 
 2. **Create one integration branch** off the current branch, named for the set (e.g. `integration-<first>`, with a
    short suffix if there are several — keep it filesystem-safe). This is where merges are tested; the main line
-   stays untouched until the end. (Already on an `integration-*` branch from an interrupted run? Reuse it and
-   continue with the branches not yet merged instead of creating another.)
+   stays untouched until the end. Record where it will land, so a resumed run knows:
+   `git config branch.<integration>.integrationTarget <original>`. (Already on an `integration-*` branch from an
+   interrupted run? Reuse it, with the original from step 1, and continue with the branches not yet merged
+   instead of creating another.)
 
 3. **Merge each branch in order**, `--no-ff`. After **each** merge, run the detected **test** command so a break
    is localized to the branch that caused it.
@@ -52,8 +58,8 @@ linter). Do not hardcode `pytest`/`mypy`/`pyright` — use whatever this repo ac
 4. **Full validation** once all branches are merged: run the project's complete detected suite (tests + type
    checks + lint). Any failure → report it and roll back; nothing reaches the main line red.
 
-5. **Merge the integration branch into the original branch** (`--no-ff`), then delete the integration branch
-   (`git branch -d`).
+5. **Merge the integration branch into the original branch** (`git checkout <original>`, then `--no-ff`), then
+   delete the integration branch (`git branch -d`, which also drops its `integrationTarget` entry).
 
 6. **Offer cleanup** — ask the user (AskUserQuestion where available; otherwise a plain question, and wait for the
    answer): remove the N worktrees and delete their feature branches, or keep them. On yes, for each branch:
