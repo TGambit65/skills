@@ -32,7 +32,8 @@ Run these two commands inside Claude Code:
 ```
 
 That's it. All 36 skills, managed and read-only. To pick up a new version, refresh the marketplace and then update
-the plugin, and restart: refreshing the marketplace alone leaves the installed copy as it was.
+the plugin from a terminal, and restart Claude Code: refreshing the marketplace alone leaves the installed copy as it
+was.
 
 ```
 claude plugin marketplace update cole-medin
