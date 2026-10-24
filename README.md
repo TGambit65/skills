@@ -241,6 +241,9 @@ python3 tools/check_contracts.py   # just the cross-skill contracts (paths, sect
 `.claude/skills/...` path (which does not exist under a plugin install), runs a load-time command with an unfilled
 placeholder, or ships a report template with the result already typed in. Run it before sending a change.
 
+CI runs the same `tools/test_all.py` on Python 3.9 and 3.13 for every pull request and every push to `main`
+([`.github/workflows/checks.yml`](.github/workflows/checks.yml)).
+
 ## License
 
 MIT, see [LICENSE](LICENSE). Take them, fork them, rewrite them.
