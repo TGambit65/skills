@@ -1,0 +1,34 @@
+# Runs tools/test_all.py: the contract checker, the hooks corpus and every bundled test suite.
+# The suites need only Python, bash and git, all of which the runner already has.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-all:
+    name: test_all.py (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest version the scripts are run on, and the current one: the 3.10-only
+        # syntax that once broke the dark-factory suite only shows up on the first.
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python tools/test_all.py
