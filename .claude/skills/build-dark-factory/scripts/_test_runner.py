@@ -672,6 +672,24 @@ def test_untitled_issue_does_not_kill_the_runner(f: Factory):
        f"the run died before reaching any build node -- the title grep is still fatal:\n{out[-1500:]}")
 
 
+@test("an ignored secret in the factory checkout passed the pre-flight, and every build node "
+      "reaches that checkout through --add-dir, so code a node wrote could read it past the "
+      "Read() deny")
+def test_secret_in_root_checkout_blocks_build_nodes(f: Factory):
+    """A FACTORY_SECRET_FILES entry present in the root checkout must stop the lap before any node runs."""
+    f.issue("0001-widget", state="accepted")
+    f.write(".env", "API_KEY=do-not-read-me\n")
+    f.node_action("implement", NODE_WRITES_A_FILE)
+    f.clear_signals()
+    rc, out = f.run("implement-issue", "issues/0001-widget.md")
+    has(out, "PREFLIGHT_OK", "the .env was not git-ignored in the fixture; this probes the wrong check")
+    has(out, "exists in the factory checkout", "a secret in the root checkout did not stop the lap")
+    ok("NODE prime" not in out and "NODE implement" not in out,
+       f"a build node ran with a readable secret in the checkout:\n{out[-1500:]}")
+    ok(f.state_of("issues/0001-widget.md") == "needs-human",
+       "the refused lap left the issue dispatchable -- it will be refused again every tick")
+
+
 @test("an unguarded command failing under `set -e` produced exit 1 and NOTHING else: no "
       "state change, no ledger, no notification, and the orchestrator discarded the "
       "runner's exit status so nothing downstream noticed either")
@@ -1502,6 +1520,13 @@ MUTATIONS = [
         "an issue with no title: line killed the runner before the issue moved to "
         "in-progress, so it was re-dispatched every tick forever",
         "test_untitled_issue_does_not_kill_the_runner"),
+    Mutation(
+        "root-secrets-unchecked", "factory/run-workflow.sh",
+        '[ -e "$ROOT/$_sf" ] && escalate',
+        'false && escalate',
+        "an ignored secret in the root checkout is one absolute-path read away from code a "
+        "build node wrote, and the lap ran anyway",
+        "test_secret_in_root_checkout_blocks_build_nodes"),
     Mutation(
         "no-err-trap", "factory/run-workflow.sh",
         "trap 'on_unguarded_error \"$?\" \"$LINENO\" \"$BASH_COMMAND\"' ERR",

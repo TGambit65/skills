@@ -151,9 +151,11 @@ deny the agent returns the file's first line, with it the agent returns blocked.
 `Read(...)` denials on every node, and the pre-flight refuses to start until each is git-ignored. A node
 that executes code (implement's `python -c`, and the quick gate implement and fix run over code they
 wrote) can still open any file the OS user can, by absolute path. Build nodes work in a fresh worktree,
-where an ignored file is absent, and the runner refuses to run them if one is present. Keep anything a
-code-running node must never see out of this checkout entirely: `gh` keeps its token in its own keyring,
-and the factory host needs no `.env` of the product's.
+where an ignored file is absent, and the runner refuses to run them if one is present there or in the
+factory checkout itself, which every node can reach. So keep anything a code-running node must never see
+out of this checkout entirely (the build lap escalates `PREFLIGHT: ... exists in the factory checkout`
+until you do): `gh` keeps its token in its own keyring, and the factory host needs no `.env` of the
+product's. Files elsewhere on the host that this OS user can read are beyond what the runner checks.
 
 **Governance is read from the BASE branch.** A PR must not be able to weaken the rulebook
 it is about to be judged against.
