@@ -53,9 +53,11 @@ Run the `piv-implement` skill with the plan path from Step 2. It writes
 
 Run the `piv-validate` skill. Record each check as PASS / FAIL / NOT RUN and the overall verdict.
 
-On an overall FAIL, apply `piv-implement`'s step-4 fix rules to the failing check **once** (fix the code, never
-the check; its 3-attempt cap applies; append the outcome to the implementation report), then re-run
-`piv-validate`. Still FAIL → stop the loop.
+An overall FAIL with no check at status FAIL (every failing check is NOT RUN, for example because
+`piv-validate` has no command source) is not a code problem: stop the loop and report the missing result,
+without applying fix rules. On an overall FAIL with a check at status FAIL, apply `piv-implement`'s step-4 fix
+rules to that check **once** (fix the code, never the check; its 3-attempt cap applies; append the outcome to the
+implementation report), then re-run `piv-validate`. Still FAIL → stop the loop.
 
 ## Step 5: Review — pre-commit technical review
 

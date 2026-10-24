@@ -34,9 +34,13 @@ Run these two commands inside Claude Code:
 That's it. All 36 skills, managed and read-only, and `/plugin marketplace update` pulls new ones as I add them.
 Plugin skills are namespaced, so you invoke them as `/skills:piv-implement`.
 
-The whole set costs roughly 3,000 tokens of always-on context (just the descriptions; the bodies load only when a
-skill fires). `python3 tools/check_contracts.py --tokens` prints the per-skill budget. Run `claude plugin details skills` to see the per-skill breakdown, and disable the plugin any
-time with `/plugin`.
+The whole set costs roughly 4,000 tokens of always-on context (just the descriptions; the bodies load only when a
+skill fires): `claude plugin details skills` reports about 4,045 for v1.5.0, with a per-skill breakdown.
+`python3 tools/check_contracts.py --tokens` gives a quicker estimate from the descriptions alone. Disable the plugin
+any time with `/plugin`.
+
+Plugin skills are read-only, so configure the one template, `piv-validate`, in your project rather than in the
+skill: see [Make them yours](#make-them-yours).
 
 > **If that first command fails with `Permission denied (publickey)`:** the `owner/repo` shorthand prefers SSH,
 > and your SSH key isn't authenticating to GitHub. Recent Claude Code versions detect that and fall back to HTTPS
@@ -216,9 +220,12 @@ To build one of your own without writing Python, describe it to the `hooks-creat
 
 Two things deliberately ship as templates and expect an edit before first use:
 
-- **`piv-validate`** has a placeholder command list. Put your project's real test, type-check, and lint commands
-  in it.
-- **`piv-commit`** and **`piv-create-pr`** read `.claude/references/conventions.md` if it exists, the first its
+- **`piv-validate`** needs your project's real test, type-check and lint commands. Put them in a `## validate`
+  section of `.claude/references/conventions.md`, one per line (``- tests: `uv run pytest` ``), which works for
+  every install route including the plugin. A copy installed as files can edit the skill's command list instead.
+  With neither, it falls back to commands your `CLAUDE.md` or `AGENTS.md` states verbatim, and otherwise reports
+  every check `NOT RUN` rather than guess, which stops `piv-run-full-loop` before it commits.
+- **`piv-commit`** and **`piv-create-pr`** read the same `.claude/references/conventions.md`, the first its
   `## commit` section and the second its `## pr` section. Create one and they'll follow your conventions instead
   of guessing.
 

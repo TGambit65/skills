@@ -62,6 +62,7 @@ HANDOFFS = [
     ("second-brain-audit", "second-brain-fix", "second-brain-audit.md"),
     ("worktree-create", "worktree-merge", "worktrees/"),
     ("piv-commit", "piv-create-pr", ".claude/references/conventions.md"),
+    ("piv-commit", "piv-validate", ".claude/references/conventions.md"),
     ("system-execution-report", "system-evolution-review", ".claude/execution-reports/"),
     ("piv-slice-epic", "piv-plan-implementation", "docs/tickets/"),
     ("piv-implement-issue", "piv-create-pr", ".claude/reports/"),
