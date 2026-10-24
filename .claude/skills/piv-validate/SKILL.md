@@ -7,15 +7,32 @@ description: Runs the project's tests, type checks and lint and returns one PASS
 
 Run every check this project has and report a single PASS/FAIL verdict.
 
-> ## ⚠️ Make this yours first
->
-> **This skill is a template. The command list below is a placeholder — replace it with the commands
-> *your* project actually uses.** That is the entire point of a custom checker: it is the one skill
-> that cannot be generic, because it wraps your stack's CLIs.
->
-> Find your real commands in `package.json` scripts, `pyproject.toml`, `Makefile`, `justfile`,
-> `docker-compose.yml`, your CI workflow, or the README — then delete these and paste yours in.
->
+## Where the commands come from
+
+This is the one skill that cannot be generic: it wraps your stack's CLIs. Take the commands from the
+**first** of these sources that has any, use only that source, and name it in the report:
+
+1. **`.claude/references/conventions.md`, its `## validate` section.** One line per check:
+
+   ```markdown
+   ## validate
+   - tests: `uv run pytest -q`
+   - types: `uv run mypy`
+   - lint: `uv run ruff check .`
+   - smoke (optional): `./scripts/smoke.sh`
+   ```
+
+   Every listed check is required unless it says `(optional)`, and the list is the whole checker: a kind
+   of check it leaves out is not required. Commands run from the repo root unless they `cd`. This is the
+   route that works for every install, including the plugin, whose copy of this file is read-only.
+2. **The command blocks below, once edited.** A copy installed as files can paste its commands into
+   steps 1–5 instead. A block still holding its `REPLACE` placeholder is not a source.
+3. **`CLAUDE.md` or `AGENTS.md`**, only for a command it states verbatim as the project's test,
+   type-check or lint command. Never infer one from a manifest, a CI file or the README.
+
+No source → do not guess a command. Report every check as `NOT RUN — piv-validate not configured`,
+and say in the verdict how to configure it (source 1 above).
+
 > **Three things to get right, because they are the usual reason a checker silently lies:**
 > 1. **Working directory.** Many tools only discover their config from the current directory. If your
 >    config lives in `backend/pyproject.toml`, the command is `cd backend && uv run pytest`, not
@@ -25,9 +42,6 @@ Run every check this project has and report a single PASS/FAIL verdict.
 > 3. **Lint your code, not the installed skills.** Skills installed as files put their own scripts under
 >    `.claude/skills/`, and a repo-wide lint (`ruff check .`, `eslint .`) fails on them. Exclude `.claude/`
 >    in the linter's config (for ruff, `extend-exclude = [".claude"]`) rather than narrowing the command.
->
-> **Until you do:** if a `REPLACE` placeholder is still in a step below, do not guess a command for it.
-> Report that check as `NOT RUN — piv-validate not configured` and say so in the verdict.
 
 Run the checks in order. Keep going after a failure so the report covers everything, and capture the
 output of any command that fails or cannot run.
@@ -82,12 +96,14 @@ skill — the background-and-kill idiom is not portable.
 
 ## 6. Summary report
 
-Report each check with one of three statuses, then an overall verdict:
+Start with the source the commands came from (`conventions.md`, `this skill`, `CLAUDE.md`, `AGENTS.md`,
+or `none`). Then report each check with one of three statuses, and an overall verdict:
 
-- **PASS** — the command ran and met its *Expected* line.
+- **PASS** — the command ran and met its *Expected* line (for a `conventions.md` or `CLAUDE.md` command:
+  it exited 0 and its output reports no failures).
 - **FAIL** — the command ran and did not. Include the failing command and the relevant output.
 - **NOT RUN** — the command did not run to a result: tool missing, wrong directory, placeholder never
-  replaced, timeout, or an optional check skipped by its own rule. Include the reason (and the error).
+  replaced or no source at all, timeout, or an optional check skipped by its own rule. Include the reason (and the error).
   A check that could not run is reported as NOT RUN, never as a pass.
 
 Then:
