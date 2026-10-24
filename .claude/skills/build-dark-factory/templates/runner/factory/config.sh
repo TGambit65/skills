@@ -9,6 +9,22 @@
 #
 # Sourced by every script in factory/. Keep it to variable assignments; no side effects,
 # nothing that can fail, nothing that prints.
+#
+# BASH, not sh and not PowerShell. Every script here uses `set -o pipefail`, `trap ERR`,
+# `set -C` and `local`. On Windows that means Git Bash (what Git for Windows installs);
+# Task Scheduler reaches it through the `tick.cmd` launcher install-trigger.sh writes.
+
+# --- python ------------------------------------------------------------------
+# Every script here calls `python`, bare. Debian, Ubuntu and current macOS ship only
+# `python3`, and a factory on one of those died at its first `python factory/state.py`
+# with `command not found` - on every tick, forever, looking exactly like a factory with
+# nothing to do. When `python` does not resolve and `python3` does, define it. A shell
+# function, exported, so every child script inherits it; not a side effect in the sense
+# above, because it changes nothing when `python` already exists.
+if ! command -v python >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+  python() { command python3 "$@"; }
+  export -f python
+fi
 
 # --- the agent ---------------------------------------------------------------
 # Whatever is already authenticated on the machine that will run this. Not the best one.
@@ -41,7 +57,25 @@ FACTORY_MODEL_CHEAP="${FACTORY_MODEL_CHEAP:-sonnet}"
 #
 # Measured: a plan node runs ~$1-3, an implement node ~$2-4. This is a ceiling, not a
 # budget - it should be high enough that hitting it means something went wrong.
+#
+# Per INVOCATION, and Claude Code's docs say spend can pass it (it checks a client-side
+# estimate between calls), so leave headroom. Cap enforcement needs Claude Code v2.1.217
+# or later; on anything older the flag is accepted and the run proceeds uncapped.
 FACTORY_MAX_BUDGET_USD="${FACTORY_MAX_BUDGET_USD:-8}"
+
+# THE AGGREGATE CAP. The line above bounds one agent call. Nothing bounded the day: a
+# dispatcher on a 30-minute cron with a fix loop that keeps finding something to fix runs
+# 48 laps, every one of them under its own cap, and the first anyone hears of it is the
+# invoice. `orchestrator.sh` asks `cost.py daily` for today's total (UTC, from the run
+# records in .factory/runs/) before every dispatch and refuses at or above this. Written
+# to needs-human.md and notified ONCE per day; resets at midnight UTC.
+#
+# The true ceiling is this plus one in-flight lap per parallel slot, because a running
+# lap has not written its record yet: 50 + 1 x 8 at the shipped defaults. An agent whose
+# JSON reports no cost makes the day read as `unmeasured`, which is logged - the guard
+# cannot count what the agent did not report. Set to 0 to disable, and say why in
+# .factory/decisions.md.
+FACTORY_MAX_DAILY_USD="${FACTORY_MAX_DAILY_USD:-50}"
 
 # --- the validation harness --------------------------------------------------
 # THE MOST IMPORTANT LINE IN THIS FILE.
@@ -83,15 +117,18 @@ FACTORY_BACKEND="${FACTORY_BACKEND:-}"
 # 0 workflows exist, run by hand   <- where every factory starts, and stays until a lap
 #                                     has been proven by hand
 # 1 accepted issue -> branch and PR open
-# 2 + the validator runs and writes a verdict
-# 3 + the validator AUTO-MERGES on green structural gates   <- THE TARGET. Build for this.
+# 2 + the validator runs and writes a verdict   <- THE RECOMMENDED OPERATING LEVEL
+# 3 + the validator AUTO-MERGES on green structural gates   <- THE GOAL. Build for this.
 # 4 + self-triage, and a scheduled run files its own bugs
 # 5 + writes its own issues from the mission
 #
-# LEVEL 3 IS THE RECOMMENDED DESTINATION and 1 and 2 are the way there, not places to
-# stop: at 2 a person still merges every PR, which is the bottleneck the factory was
-# built to remove. Everything expensive in this repo - the holdout, the mutation set, the
-# ratchet, the two gates that are code - exists to earn 3.
+# LEVEL 2 IS THE DEFAULT. Everything expensive in this repo - the holdout, the mutation
+# set, the ratchet, the two gates that are code - exists to earn 3, and 3 is where this
+# ends up: at 2 a person still merges every PR, which is the bottleneck the factory was
+# built to remove. But 3 is the first level where code reaches users with nobody having
+# read it, so it is a decision the OWNER states, out loud, after watching the gate refuse
+# something real at 2. It is never the setting that happened because nobody raised the
+# question. Record the move to 3 in .factory/decisions.md with what convinced you.
 #
 # The SHIPPED value is still 0, deliberately. A fresh clone must not auto-merge before a
 # single lap has been proven by hand, and `factory_doctor` refuses 3 while there is no
@@ -242,6 +279,7 @@ export FACTORY_AGENT \
        FACTORY_LOCK_GRACE_MINUTES \
        FACTORY_LOCK_STALE_MINUTES \
        FACTORY_MAX_BUDGET_USD \
+       FACTORY_MAX_DAILY_USD \
        FACTORY_MAX_FIX_ATTEMPTS \
        FACTORY_MAX_PARALLEL \
        FACTORY_MODEL_CHEAP \

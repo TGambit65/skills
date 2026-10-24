@@ -17,6 +17,7 @@ be arranged.
 
 | | Why it is on the list |
 |---|---|
+| **bash, and `python` on PATH** | Every runner script is bash (`set -o pipefail`, `trap ERR`, `set -C`): on Windows that is Git Bash, never PowerShell or cmd; Task Scheduler reaches it through the `tick.cmd` launcher. The scripts call `python`, bare; `config.sh` falls back to `python3` when only that exists, but check `python --version` on the factory machine anyway. |
 | **A coding agent, authenticated on the machine that will run the factory** | Not the best one. The one that works today. |
 | **`gh` authenticated**, if state lives on GitHub | The dispatcher, the gate and the merge all shell out to it. |
 | **A machine that stays on** | A factory on a laptop that sleeps is a factory that runs when you happen to be awake, which is the thing you were trying to stop doing. |

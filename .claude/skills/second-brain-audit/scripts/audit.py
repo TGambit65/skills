@@ -10,19 +10,48 @@ Nothing here is written. This script only reads and reports.
 
     python audit.py <notes-dir>
     python audit.py <notes-dir> --always-loaded MEMORY.md --always-loaded CLAUDE.md
-    python audit.py <notes-dir> --subject "Acme Corp"
+    python audit.py <notes-dir> --subject acme --subject rate
     python audit.py <notes-dir> --json
+    python audit.py --version          # version plus the heuristics below
 
-WHAT COUNTS AS A CONTRADICTION
-------------------------------
-Only a disagreement that spans **more than one file**. A single page listing
-"$2,800 in May, $3,200 in June" is history, and history is supposed to look like
-that. The failure worth finding is the same subject answered differently in two
-places, with nothing saying which one is current.
+requires-python: >=3.8. Zero dependencies.
 
-Values are also only compared **like with like**: a one-time fee and a monthly
-rate are different facts about the same client, not two versions of one fact.
-Both rules exist because a checker that cries wolf trains you to ignore it.
+Exit codes: 0 = scan completed (findings or not; this is a report, not a gate),
+2 = the notes path is not a directory or an argument is invalid.
+
+HEURISTICS (exactly what is counted, so a reader can predict a zero)
+--------------------------------------------------------------------
+1. CROSS-FILE VALUE CONFLICT. A subject whose dollar amounts disagree across
+   **more than one file** (one file is enough when the folder holds <= 2 files).
+   A single page listing "$2,800 in May, $3,200 in June" is history, and history
+   is supposed to look like that. Amounts are compared like with like: /mo, /yr,
+   /hr and one-time sums are separate buckets, and "$22k" equals "$22,000".
+   A subject is the page's own name (per-subject pages), a bolded lead
+   ("- **Retainer**: ..."), or a --subject term found in the line.
+2. SAME-KEY CONFLICT ON ONE PAGE. On a per-subject page, a `Key: value` bullet
+   whose key appears again with a different value under the same heading (and,
+   for nested bullets, the same parent bullet). Keys are matched after
+   lowercasing; a leading date or bold is ignored ("- 2026-03-01 Status: active"
+   and "- **Status**: prospect" share the key "status"). Values are compared
+   after lowercasing, collapsing whitespace, stripping markdown emphasis and
+   trailing punctuation, and canonicalising dollar amounts. Free-text keys are
+   ignored (see IGNORED_KEYS: notes, summary, context, todo, update ...), as are
+   bullets under a Log/History/Timeline/Archive heading, dated-journal files,
+   pages where >= 70% of bullets carry a date, and keys longer than 32 chars.
+3. FINISHED BUT OPEN. A bullet containing done/shipped/paid/complete(d)/
+   delivered/signed/cancelled/closed/launched under a heading whose text
+   contains active/open/current/todo/in progress/now/doing/pending/backlog.
+   A heading that starts exactly `## Current State` is exempt.
+4. DATING. Share of bullets on non-journal pages that carry a YYYY-MM-DD or
+   "Mon D" date.
+5. NEAR-MISS SUBJECTS. Page-named subjects whose names are >= 86% similar
+   (difflib ratio). Reported only, never merged.
+
+Status words on their own are deliberately NOT a contradiction: "migration
+COMPLETE" and "20 active deals" on one topic page read as a conflict to a regex
+and as obviously unrelated to a human. Lifecycle conflicts need judgment, so
+the skill hands those to the model. Every rule above exists because a checker
+that cries wolf trains you to ignore it.
 """
 from __future__ import annotations
 
@@ -34,6 +63,8 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+__version__ = "1.1.0"
 
 if hasattr(sys.stdout, "buffer"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -105,6 +136,26 @@ GENERIC_LEAD = re.compile(
 NOT_A_SUBJECT = {"index", "readme", "memory", "claude", "soul", "user", "schema",
                  "heartbeat", "repositories", "core-memories", "todo", "inbox"}
 
+# `- [date] [**]Key[**] [(date)]: value`. The key must start with a letter, hold no
+# colon, and stay short: a long "key" is a sentence with a colon in it.
+KV = re.compile(
+    r"^(\s*)-\s+(?:\(?(?:\d{4}-\d{2}-\d{2})\)?\s*)?"
+    r"(?:\*\*)?([A-Za-z][A-Za-z0-9 /&'().-]{0,31}?)(?:\*\*)?"
+    r"\s*(?:\((?:\d{4}-\d{2}-\d{2}|[^)]{0,24})\))?\s*:\s+(.+?)\s*$")
+
+# Keys whose value is prose, a running commentary, or an event. Two different
+# values under one of these is normal writing, not two answers to one question.
+IGNORED_KEYS = {
+    "note", "notes", "summary", "context", "background", "description", "details",
+    "detail", "comment", "comments", "todo", "to do", "next", "next step", "next steps",
+    "action", "actions", "action item", "action items", "update", "updates", "log",
+    "history", "link", "links", "tag", "tags", "see also", "related", "source",
+    "sources", "ref", "refs", "reference", "references", "quote", "example",
+    "examples", "idea", "ideas", "question", "questions", "meeting", "call", "email",
+    "task", "tasks", "decision", "lesson", "lessons", "why", "how", "what", "when",
+    "where", "http", "https", "re", "aka", "e.g", "eg", "i.e", "ie", "tl;dr", "tldr",
+}
+
 
 def norm(s: str) -> str:
     s = MONEY.sub(" ", s)
@@ -130,6 +181,24 @@ def page_subject(stem: str) -> str | None:
     return norm(s.replace("-", " ").replace("_", " "))
 
 
+def norm_key(s: str) -> str:
+    """Normalise a bullet key for comparison: lowercase, no emphasis marks, single spaces."""
+    return re.sub(r"\s+", " ", s.strip().lower().strip("*_` "))
+
+
+def norm_value(s: str) -> str:
+    """Lowercase, de-emphasise, canonicalise money, collapse whitespace, drop
+    trailing punctuation. "$22k" and "$22,000." become one value."""
+    def _money(m):
+        """Replace a money match with its canonical form, or leave it as written."""
+        mv = money_value(m.group(0))
+        return fmt_money(*mv) if mv else m.group(0)
+    s = MONEY.sub(_money, s)
+    s = re.sub(r"[*_`]+", "", s.lower())
+    s = re.sub(r"\s+", " ", s).strip().rstrip(".;,")
+    return s
+
+
 def read(p: Path) -> str:
     try:
         return p.read_text(encoding="utf-8", errors="replace")
@@ -150,6 +219,7 @@ def iter_lines(text: str):
 def scan(root: Path, extra: list[str]):
     # The skill's own report (phase 8) quotes stale claims verbatim, so a later run
     # would read them as live values and contradict itself. Skip it by name.
+    """Read every markdown note under root and collect the raw material every heuristic needs."""
     files = sorted(p for p in root.rglob("*.md")
                    if ".git" not in p.parts and not p.name.startswith("second-brain-audit"))
 
@@ -165,6 +235,8 @@ def scan(root: Path, extra: list[str]):
         named.add(norm(t))
 
     subjects: dict[str, list] = defaultdict(list)
+    # (file, heading path, parent bullet, key) -> [{line, value, raw}]
+    kv_seen: dict[tuple, list] = defaultdict(list)
     money_seen = 0
     journal_files = 0
     bullets = dated = 0
@@ -193,10 +265,23 @@ def scan(root: Path, extra: list[str]):
         is_chronological = len(page_bullets) >= 5 and n_dated / len(page_bullets) >= 0.7
 
         under_open = under_log = False
+        heading = ""
+        parent_bullet = ""
+        # (level, text, is_log) for every heading still open above this line. A child
+        # heading inherits its parents' Log exclusion: a `### 2025` under `## Log` is
+        # still history, not two rival `Status:` claims about now.
+        heading_stack: list[tuple[int, str, bool]] = []
         for lineno, line in iter_lines(text):
             if line.startswith("#"):
+                level = len(line) - len(line.lstrip("#"))
+                while heading_stack and heading_stack[-1][0] >= level:
+                    heading_stack.pop()
+                heading_stack.append((level, line.strip("# ").strip().lower(),
+                                      bool(LOG_HEADING.match(line))))
                 under_open = bool(OPEN_HEADING.match(line))
-                under_log = bool(LOG_HEADING.match(line))
+                under_log = any(is_log for _, _, is_log in heading_stack)
+                heading = " > ".join(t for _, t, _ in heading_stack)
+                parent_bullet = ""
                 # A `## Current State` section holds values, not to-dos. "PAID" there is
                 # a state, not a finished item forgotten in an open list.
                 if SCHEMA_STATE.match(line):
@@ -205,6 +290,19 @@ def scan(root: Path, extra: list[str]):
             if not BULLET.match(line):
                 continue
             bullets += 1
+
+            # Same key, different value, one page: the appended-state bug itself.
+            # Scoped by heading and, for nested bullets, by the parent bullet, so a
+            # page listing several tasks each with its own "Status:" is not flagged.
+            kv = KV.match(line)
+            if kv and own and not is_journal and not (under_log or is_chronological):
+                indent, key, value = kv.group(1), norm_key(kv.group(2)), kv.group(3)
+                if key not in IGNORED_KEYS and value.strip():
+                    scope = (rel, heading, parent_bullet if indent else "", key)
+                    kv_seen[scope].append({"line": lineno, "value": norm_value(value),
+                                           "text": line.strip()[:108]})
+            if not line.startswith((" ", "\t")):
+                parent_bullet = line.strip()[:60]
             has_date = bool(DATE.search(line))
             dated += has_date
             if not is_journal:
@@ -245,7 +343,30 @@ def scan(root: Path, extra: list[str]):
                      "text": line.strip()[:108]})
 
     return (files, subjects, bullets, dated, durable_bullets, durable_dated,
-            finished_open, schema_pages, words, vocab, money_seen, journal_files)
+            finished_open, schema_pages, words, vocab, money_seen, journal_files,
+            kv_seen)
+
+
+def key_conflicts(kv_seen: dict) -> list[dict]:
+    """One key, two or more distinct values, on one page under one heading.
+
+    This is the detector the money rule cannot be: "Status: prospect" followed
+    by "2026-03-01 Status: active customer" has no number in it and is exactly
+    the appended state the skill exists to find. Identical repeated values are
+    not reported; neither is anything under a Log heading.
+    """
+    out = []
+    for (rel, heading, parent, key), hits in kv_seen.items():
+        values = {}
+        for h in hits:
+            values.setdefault(h["value"], h)
+        if len(values) < 2:
+            continue
+        out.append({"file": rel, "heading": heading, "key": key,
+                    "values": [h["value"] for h in values.values()],
+                    "hits": list(values.values())})
+    out.sort(key=lambda c: (-len(c["values"]), c["file"], c["hits"][0]["line"]))
+    return out
 
 
 def contradictions(subjects: dict, min_files: int = 2) -> list[dict]:
@@ -311,42 +432,73 @@ def near_misses(subjects: dict, vocab: dict) -> list[tuple[str, str]]:
 
 
 def main() -> int:
+    """Audit a notes folder (read only) and print the report or --json."""
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("notes", type=Path)
+    ap.add_argument("notes", type=Path, help="folder of markdown notes (read only)")
     ap.add_argument("--always-loaded", action="append", default=[], metavar="PATH",
-                    help="a file your agent reads every session (repeatable)")
-    ap.add_argument("--subject", action="append", default=[], metavar="TERM")
-    ap.add_argument("--json", action="store_true")
+                    help="a file your agent reads every session, as a name or a path "
+                         "relative to the notes folder (repeatable)")
+    ap.add_argument("--subject", action="append", default=[], metavar="TERM",
+                    help="a subject to attribute values to, one stem per flag "
+                         "(`rate`, not `\"Hourly rate\"`); repeatable")
+    ap.add_argument("--json", action="store_true", help="structured output instead of the report")
+    ap.add_argument("--version", action="version",
+                    version=f"audit.py {__version__}: heuristics = cross-file money conflict, "
+                            "same-key conflict on one page, finished-but-open, dating share, "
+                            "near-miss subjects. See --help for the exact rules.")
     a = ap.parse_args()
 
     root = a.notes.expanduser().resolve()
     if not root.is_dir():
-        print(f"not a directory: {root}")
+        print(f"not a directory: {root}", file=sys.stderr)
         return 2
 
     (files, subjects, bullets, dated, dur_b, dur_d,
-     fin_open, schema, words, vocab, money_seen, journals) = scan(root, a.subject)
+     fin_open, schema, words, vocab, money_seen, journals, kv_seen) = scan(root, a.subject)
     conts = contradictions(subjects, min_files=1 if len(files) <= 2 else 2)
-    always = [s.replace("\\", "/").lower() for s in a.always_loaded]
+    kconf = key_conflicts(kv_seen)
+    always = [s.replace("\\", "/").lower().lstrip("./") for s in a.always_loaded]
 
     def in_always(h):
-        return any(h["file"].lower().endswith(al) for al in always)
+        # Match whole path components: `MEMORY.md` names memory.md anywhere in the
+        # tree, not `archive/OLDMEMORY.md`.
+        """True when a hit's file is one of the --always-loaded names, matched by whole path components."""
+        f = h["file"].lower()
+        return any(f == al or f.endswith("/" + al) for al in always)
 
     hot = [c for c in conts if any(in_always(h) for h in c["hits"])]
+    hot_keys = [c for c in kconf if in_always(c)]
     always_money = sum(
         len(h["money"]) for hits in subjects.values() for h in hits if in_always(h)
     ) if always else 0
     pct = round(100 * dur_d / dur_b) if dur_b else 0
+    rels = [str(p.relative_to(root)).replace("\\", "/").lower() for p in files]
+    # Names that point at no scanned file. Computed before the JSON branch so a JSON
+    # consumer can tell "always-loaded file has no conflicts" from "never looked at it".
+    unmatched = [al for al in always if not any(f == al or f.endswith("/" + al) for f in rels)]
 
     if a.json:
         print(json.dumps({
+            "version": __version__,
             "files": len(files), "words": words, "durable_bullets": dur_b,
             "dated_pct": pct, "contradicted_subjects": len(conts),
             "contradictions_in_always_loaded": len(hot),
+            "key_conflicts": len(kconf),
+            "key_conflicts_in_always_loaded": len(hot_keys),
             "finished_but_open": len(fin_open), "schema_pages": len(schema),
-            "detail": [{k: c[k] for k in ("subject", "kind", "values")} | {
-                "files": sorted({h["file"] for h in c["hits"]})} for c in conts[:25]],
+            "always_loaded_unmatched": unmatched,
+            "coverage_warnings": (
+                [{"code": "always_loaded_unmatched", "names": unmatched,
+                  "meaning": "these --always-loaded names matched no scanned file, so the "
+                             "*_in_always_loaded counts do not cover them"}]
+                if unmatched else []),
+            "detail": [dict({k: c[k] for k in ("subject", "kind", "values")},
+                            files=sorted({h["file"] for h in c["hits"]})) for c in conts[:25]],
+            "key_conflict_detail": [
+                {"file": c["file"], "heading": c["heading"], "key": c["key"],
+                 "values": c["values"], "lines": [h["line"] for h in c["hits"]]}
+                for c in kconf[:25]],
         }, indent=1))
         return 0
 
@@ -372,13 +524,25 @@ def main() -> int:
     if len(conts) > 6:
         print(f"\n  ... and {len(conts) - 6} more.")
 
-    print(f"\n{'-' * W}\n2. CAN YOU RESOLVE A CONFLICT BY DATE?\n{'-' * W}")
+    print(f"\n{'-' * W}\n2. ONE KEY, TWO VALUES, SAME PAGE  (appended state)\n{'-' * W}")
+    if not kconf:
+        print("  None found.")
+    for c in kconf[:8]:
+        flag = "   <-- ALWAYS LOADED" if in_always(c) else ""
+        where = f" under '{c['heading']}'" if c["heading"] else ""
+        print(f"\n  {c['file']}{where}: '{c['key']}' has {len(c['values'])} values{flag}")
+        for h in c["hits"][:4]:
+            print(f"      :{h['line']}  {h['text']}")
+    if len(kconf) > 8:
+        print(f"\n  ... and {len(kconf) - 8} more.")
+
+    print(f"\n{'-' * W}\n3. CAN YOU RESOLVE A CONFLICT BY DATE?\n{'-' * W}")
     print(f"  {dur_d:,} of {dur_b:,} bullets on durable pages carry a date  ({pct}%)")
     if pct < 60:
         print("  Under ~60%, \"just use the newest one\" is not available to you or")
         print("  to your agent, because most entries never say when they were written.")
 
-    print(f"\n{'-' * W}\n3. FINISHED, BUT STILL IN AN OPEN LIST\n{'-' * W}")
+    print(f"\n{'-' * W}\n4. FINISHED, BUT STILL IN AN OPEN LIST\n{'-' * W}")
     if not fin_open:
         print("  None found.")
     for f, ln, txt in fin_open[:6]:
@@ -388,16 +552,18 @@ def main() -> int:
 
     nm = near_misses(subjects, vocab)
     if nm:
-        print(f"\n{'-' * W}\n4. POSSIBLY THE SAME SUBJECT  (reported, never merged)\n{'-' * W}")
+        print(f"\n{'-' * W}\n5. POSSIBLY THE SAME SUBJECT  (reported, never merged)\n{'-' * W}")
         for x, y in nm:
             print(f"  {x!r}  ~  {y!r}")
 
     print(f"\n{'=' * W}\nVERDICT\n{'=' * W}")
     print(f"  {len(conts)} subject(s) answered differently in more than one file.")
+    print(f"  {len(kconf)} key(s) given two or more values on one page.")
     if always:
-        print(f"  {len(hot)} of those touch a file your agent loads every session. ***")
-        print("  (money only: a status that changed - paid, on hold, cancelled, moved - is")
-        print("   invisible to this count. Phase 2 is the audit of the always-loaded file.)")
+        print(f"  {len(hot) + len(hot_keys)} of those touch a file your agent loads every session. ***")
+        print("  (dollar amounts and repeated `Key: value` lines only: a status that changed")
+        print("   inside prose is invisible to this count. Phase 2 is the audit of the")
+        print("   always-loaded file.)")
     else:
         print("  Re-run with --always-loaded <file> to find which of these your")
         print("  agent reads on every session. Those are the ones that bite.")
@@ -407,11 +573,11 @@ def main() -> int:
     # A zero here means one of two very different things, and saying "clean" when
     # the scan simply could not see is the worst failure this tool has available.
     blind = []
-    if not money_seen:
-        blind.append("No monetary values anywhere. Values are the only thing this\n"
-                     "    scan can compare without guessing, so it has checked almost\n"
-                     "    nothing. Name the facts that matter with --subject, and read\n"
-                     "    the notes directly.")
+    if not money_seen and not kv_seen:
+        blind.append("No dollar amounts and no `Key: value` bullets anywhere. Those are\n"
+                     "    the only things this scan can compare without guessing, so it\n"
+                     "    has checked almost nothing. Name the facts that matter with\n"
+                     "    --subject, and read the notes directly.")
     if journals and journals == len(files):
         blind.append("Every file is a dated journal. That is an event log, and events\n"
                      "    are supposed to accumulate. The question is not whether these\n"
@@ -420,12 +586,18 @@ def main() -> int:
     if not vocab:
         blind.append("No per-subject pages found, so values could not be attributed to\n"
                      "    a subject across files. Pass --subject to name them.")
-    if always and not hot and always_money:
+    if always and not hot and not hot_keys and always_money:
         blind.append(f"The always-loaded file(s) carry {always_money} line(s) with a dollar\n"
                      "    amount and none matched a flagged subject. Either every value there\n"
-                     "    agrees with the rest of the notes, or the disagreement is a STATUS\n"
+                     "    agrees with the rest of the notes, or the disagreement is in prose\n"
                      "    (paid, on hold, cancelled), which this scan cannot see. Read that file\n"
                      "    claim by claim (phase 2) before calling it clean.")
+    if unmatched:
+        which = "None of the --always-loaded names" if len(unmatched) == len(always) \
+            else f"{len(unmatched)} --always-loaded name(s) ({', '.join(unmatched)})"
+        blind.append(f"{which} matched a file under the notes\n"
+                     "    folder, so the ALWAYS LOADED marks above are absent for them. Check\n"
+                     "    the spelling, or pass the path relative to the notes folder.")
     if blind:
         print(f"\n{'-' * W}\n  COVERAGE WARNING: a low count above may mean 'not visible',\n"
               f"  not 'not present'.\n{'-' * W}")

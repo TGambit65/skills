@@ -1,4 +1,29 @@
 {
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(!.env.example)",
+      "Read(.envrc)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/id_rsa*)",
+      "Read(**/id_ed25519*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.netrc)",
+      "Read(~/.npmrc)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(**/credentials.json)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean -f*)"
+    ]
+  },
+
   "hooks": {
     "SessionStart": [
       {
@@ -6,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/session_start_context.py",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session_start_context.py\"",
             "timeout": 20
           }
         ]
@@ -19,7 +44,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/pre_tool_use_secrets.py",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/pre_tool_use_secrets.py\"",
+            "onFailure": "block",
             "timeout": 15,
             "statusMessage": "Checking guardrails..."
           }
@@ -30,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/pre_tool_use_dependencies.py",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/pre_tool_use_dependencies.py\"",
             "timeout": 15
           }
         ]
@@ -43,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/post_tool_use_log.py",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/post_tool_use_log.py\"",
             "timeout": 15,
             "async": true
           }
@@ -57,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/post_tool_use_log.py",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/post_tool_use_log.py\"",
             "timeout": 15,
             "async": true
           }
@@ -70,13 +96,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/stop_tests_must_pass.py",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/stop_tests_must_pass.py\"",
             "timeout": 600,
             "statusMessage": "Running tests before finishing..."
           },
           {
             "type": "command",
-            "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/stop_notify.py",
+            "command": "uv run \"${CLAUDE_PROJECT_DIR}/.claude/hooks/stop_notify.py\"",
             "timeout": 20
           }
         ]

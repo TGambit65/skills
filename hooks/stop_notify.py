@@ -76,6 +76,9 @@ def notify(title: str, message: str) -> None:
         subprocess.run(["osascript", "-e", script], capture_output=True, timeout=10)
 
     else:
+        # A message that starts with "-" would be parsed as an option.
+        if message.startswith("-"):
+            message = " " + message
         subprocess.run(["notify-send", title, message], capture_output=True, timeout=10)
 
 

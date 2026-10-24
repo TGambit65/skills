@@ -21,7 +21,7 @@ them, in production, unattended. Do not tidy them away.
 
 ```
 factory/
-  config.sh          THE FILE YOU EDIT. Every project-specific value.
+  config.sh          THE FILE YOU EDIT. Every project-specific value, incl. both spend caps
   orchestrator.sh    the dispatcher: fixed priority, autonomy dial, stop button
   run-workflow.sh    the runner. THIS is the orchestrator; there is no second definition
   gate.sh            the structural gate: positive markers, counts, calibration
@@ -31,7 +31,7 @@ factory/
   state.py           the transition table. Refuses illegal transitions
   gh_backend.py      GitHub issues + labels as state, with read-back verification
   tripwire.py        fails loudly if a builder artifact reached the validator
-  cost.py            token instrumentation, on from run one
+  cost.py            token instrumentation, on from run one; `daily` is the aggregate cap
   node_failure.py    why a node failed: budget, denial, crash and refusal are different
   prompts/*.md       the seven nodes. THE INTERVIEW'S OUTPUT - rewrite these
   install-trigger.sh arms cron / systemd / Task Scheduler. Refuses below dial 1
@@ -40,6 +40,15 @@ issues/0001-example.md   the INPUT. The front matter is the state machine
 .gitignore         REQUIRED - the pre-flight refuses to start without it
 .gitattributes     REQUIRED on Windows - pins LF so *.sh survive a Linux box
 ```
+
+## What it runs on
+
+**bash.** Every script is `#!/usr/bin/env bash` and uses `set -euo pipefail`, `trap ERR`,
+`set -C` and `local` - bash 3.2 or later, so the macOS system bash is enough. On Windows
+that means **Git Bash** (installed with Git for Windows); none of this runs under
+PowerShell or cmd, and `install-trigger.sh` bridges Task Scheduler to bash with a
+generated `factory/tick.cmd`. **`python`**, bare, is called from every script; `config.sh`
+defines it as `python3` when only that exists.
 
 ## Install it
 
@@ -137,6 +146,17 @@ some nodes not having seen it.
 **The holdout is enforced by the agent's deny list, not by a prompt.** `--disallowedTools`
 on `$FACTORY_HOLDOUT_DIR`. Test it in both directions before believing it: without the
 deny the agent returns the file's first line, with it the agent returns blocked.
+
+**Secret files: the deny list binds the Read tool, not code.** `FACTORY_SECRET_FILES` becomes
+`Read(...)` denials on every node, and the pre-flight refuses to start until each is git-ignored. A node
+that executes code (implement's `python -c`, and the quick gate implement and fix run over code they
+wrote) can still open any file the OS user can, by absolute path. Build nodes work in a fresh worktree,
+where an ignored file is absent, and the runner refuses to run them, or to validate a branch (whose code
+the gate runs), if one is present there or in the factory checkout itself, which every node can reach. So
+keep anything a code-running node must never see out of this checkout entirely (the lap escalates
+`PREFLIGHT: ... exists in the factory checkout`
+until you do): `gh` keeps its token in its own keyring, and the factory host needs no `.env` of the
+product's. Files elsewhere on the host that this OS user can read are beyond what the runner checks.
 
 **Governance is read from the BASE branch.** A PR must not be able to weaken the rulebook
 it is about to be judged against.

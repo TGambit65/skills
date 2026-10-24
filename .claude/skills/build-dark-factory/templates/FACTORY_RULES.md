@@ -202,6 +202,9 @@ carries on - it does not re-ask.
 - Concurrency: <1> workflow at a time. Above one, a per-target lock is mandatory - never dispatch a workflow whose (workflow, target) pair is already in flight.
 - Fix attempts per PR: <2>
 - PR size: <500> lines
+- **Spend:** <8> USD per agent call (`FACTORY_MAX_BUDGET_USD`) and <50> USD per day
+  (`FACTORY_MAX_DAILY_USD`, UTC, from the run records). At the daily cap nothing
+  dispatches until midnight; a human is told once.
 - **Dispatcher priority order:** fix a PR → validate a PR → implement an issue →
   triage. Finish in-flight work before starting new work.
 - **Stop button:** <the mechanism>. Documented, and tested once on purpose.

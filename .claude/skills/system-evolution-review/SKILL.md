@@ -1,6 +1,6 @@
 ---
 name: system-evolution-review
-description: Performs a meta-level review of how well an implementation followed its plan, classifying divergences and recommending AI-Layer improvements. Use after an execution report exists to find bugs in the process, not the code.
+description: Reviews how well an implementation followed its plan, classifies each divergence as justified or problematic, and recommends AI-Layer fixes. Use after an execution report exists to find bugs in the process, not the code.
 argument-hint: "[plan-file] [execution-report-file]"
 arguments: [plan, report]
 ---
@@ -28,23 +28,25 @@ Perform a meta-level analysis of how well the implementation followed the plan a
 
 ## Context & Inputs
 
-You will analyze four key artifacts:
+Two artifacts are required; two more are read whenever they are available.
 
-**Plan Skill:**
-Read this to understand the planning process and what instructions guide plan creation.
-`.claude/skills/piv-plan-implementation/SKILL.md`
+**Generated Plan (required):** what the agent was SUPPOSED to do. Plan file: $plan
 
-**Generated Plan:**
-Read this to understand what the agent was SUPPOSED to do.
-Plan file: $plan
+**Execution Report (required):** what the agent ACTUALLY did and why. Execution report: $report
+If no report path was passed (nothing follows the colon above), use the path `system-execution-report` printed in
+this conversation, if it did. Otherwise check both locations:
+- `.claude/execution-reports/<feature>.md` (written by `system-execution-report` when no piv-implement report existed)
+- `.claude/reports/<slug>-report.md` (written by `piv-implement`, and extended in place by `system-execution-report`)
 
-**Execute Skill:**
-Read this to understand the execution process and what instructions guide implementation.
-`.claude/skills/piv-implement/SKILL.md`
+Exactly one exists → use it. **Both exist** → stop and ask which one is this run's report (name both, with their
+modification times): one is likely stale from an earlier run. Neither exists → stop and ask for it - do not
+reconstruct the report from the diff.
 
-**Execution Report:**
-Read this to understand what the agent ACTUALLY did and why.
-Execution report: $report
+**Plan skill and Execute skill (read them whenever installed):** the instructions that produced the plan and
+drove the implementation. Read the `piv-plan-implementation` and `piv-implement` skills wherever they live (project
+`.claude/skills/`, `~/.claude/skills/`, or a plugin install - never assume a fixed path); the "Update the plan
+skill / execute skill" actions below are judged against them. If they are not available, say so in the report and
+judge from the plan and report alone.
 
 ## Analysis Workflow
 
@@ -70,14 +72,14 @@ Read the execution report ($report) and extract:
 
 For each divergence identified in the execution report, classify as:
 
-**Good Divergence ✅** (Justified):
+**Good divergence** (justified):
 
 - Plan assumed something that didn't exist in the codebase
 - Better pattern discovered during implementation
 - Performance optimization needed
 - Security issue discovered that required different approach
 
-**Bad Divergence ❌** (Problematic):
+**Bad divergence** (problematic):
 
 - Ignored explicit constraints in plan
 - Created new architecture instead of following existing patterns
@@ -111,7 +113,8 @@ Save your analysis to: `.claude/system-reviews/[feature-name]-review.md`
 #### Meta Information
 
 - Plan reviewed: [path to $plan]
-- Execution report: [path to $report]
+- Execution report: [path to $report, or the path you found]
+- Plan / execute skills read: [paths, or "not available"]
 - Date: [current date]
 
 #### Overall Alignment Score: \_\_/10
@@ -132,9 +135,9 @@ divergence: [what changed]
 planned: [what plan specified]
 actual: [what was implemented]
 reason: [agent's stated reason from report]
-classification: good ✅ | bad ❌
+classification: good | bad
 justified: yes/no
-root_cause: [unclear plan | missing context | etc]
+root_cause: [unclear plan | missing context | missing validation | repeated manual step | n/a]
 ```
 
 #### Pattern Compliance
@@ -156,19 +159,19 @@ Based on analysis, recommend specific actions:
 - [ ] Add anti-pattern warning for [Y]
 - [ ] Clarify [technology constraint Z]
 
-**Update Plan Skill ($plan):**
+**Update the plan skill (`piv-plan-implementation`):**
 
 - [ ] Add instruction for [missing step]
 - [ ] Clarify [ambiguous instruction]
 - [ ] Add validation requirement for [X]
 
+**Update the execute skill (`piv-implement`):**
+
+- [ ] Add [validation step] to execution checklist
+
 **Create New Skill:**
 
 - [ ] A new skill for [manual process repeated 3+ times]
-
-**Update Execute Skill:**
-
-- [ ] Add [validation step] to execution checklist
 
 #### Key Learnings
 

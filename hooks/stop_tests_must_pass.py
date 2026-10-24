@@ -15,13 +15,19 @@ moment the context gets long. This is the same instruction as a guarantee.
 
     exit 0 -> let it finish     exit 2 -> block the stop, stderr goes to the agent
 
-Fails OPEN on anything unexpected, so a broken hook never traps you in a loop.
+Fails OPEN on anything unexpected, so a broken hook never traps you in a loop -
+but it fails open LOUDLY (exit 1, message on stderr), so you can see that the
+guarantee did not run. A silent exit 0 on a crash looks exactly like green.
 
 ============================================================================
 EDIT THIS ONE LINE
 ============================================================================
 """
 
+# Precedence: the TEST_COMMAND environment variable, if set and non-empty, wins
+# over this constant. So you can edit this line, or export TEST_COMMAND in the
+# shell you launch Claude Code from, or set it under "env" in settings.json.
+# Same for TEST_SUBDIR.
 TEST_COMMAND = "python -m pytest -q"
 
 # If your tests must run from a subdirectory (monorepo, or config that lives
@@ -49,11 +55,19 @@ MAX_OUTPUT_CHARS = 3000
 # Set False if your agent legitimately writes tests as part of the same turn.
 GUARD_TEST_EDITS = True
 
-# Which files count as tests for the guard above. Project-relative globs.
+# Which files count as tests for the guard above. Project-relative globs. The
+# runner config files are in here too: `addopts = -k nothing` in pytest.ini or
+# a `testpaths` edit in pyproject.toml turns a suite green as surely as
+# rewriting the assertion does.
 TEST_GLOBS = (
     "tests/*", "tests/**/*", "test/*", "test/**/*",
     "**/test_*.py", "**/*_test.py", "**/*.test.*", "**/*.spec.*",
+    "conftest.py", "**/conftest.py", "pytest.ini", "pyproject.toml", "setup.cfg", "tox.ini",
+    "jest.config.*", "vitest.config.*",
 )
+# Trade-off: pyproject.toml also holds dependencies, so an agent that adds a
+# package while fixing the code trips this. If that is your workflow, drop it
+# from the tuple. package.json is left out for exactly that reason.
 
 # ============================================================================
 
@@ -110,8 +124,9 @@ def _forget_tests(session_id: str) -> None:
 
 
 def _tampered_tests(root: Path, session_id: str) -> list:
-    """Test files that changed since we blocked. Empty list unless we actually
-    blocked earlier in this session, so a normal green turn never pays for this."""
+    """Test files that changed OR DISAPPEARED since we blocked. Empty list unless
+    we actually blocked earlier in this session, so a normal green turn never
+    pays for this."""
     path = _snapshot_path(session_id)
     if not path.exists():
         return []
@@ -121,9 +136,12 @@ def _tampered_tests(root: Path, session_id: str) -> list:
         return []
     now = _test_files(root)
     # Only files present at snapshot time. A brand-new test file is the agent
-    # adding coverage, which is good and must not be punished.
-    return sorted(rel for rel, digest in before.items()
-                  if rel in now and now[rel] != digest)
+    # adding coverage, which is good and must not be punished. A file that was
+    # there and is now gone is the cheapest way to make a red suite green, so
+    # that counts.
+    return sorted(rel + ("" if rel in now else "  (deleted)")
+                  for rel, digest in before.items()
+                  if rel not in now or now[rel] != digest)
 
 
 def _project_env(project_root: Path) -> dict:
@@ -157,7 +175,9 @@ def _project_env(project_root: Path) -> dict:
         drop = {os.path.join(ephemeral, "Scripts"), os.path.join(ephemeral, "bin")}
         path_parts = [p for p in path_parts if p not in drop]
 
-    # 2. The project's own venv, first - if it has one.
+    # 2. The project's own venv, first - if it has one. (`.env` here is the
+    #    old virtualenv directory convention, not the secrets file. The secrets
+    #    hook allows `.env/bin/` for the same reason.)
     for candidate in (".venv", "venv", ".env"):
         for bindir in ("Scripts", "bin"):
             venv_bin = project_root / candidate / bindir
@@ -180,6 +200,7 @@ def _clip(text: str) -> str:
 
 
 def main() -> None:
+    """Run the tests when the agent tries to stop; block the stop if they fail or were tampered with."""
     try:
         data = json.load(sys.stdin)
 
@@ -189,14 +210,26 @@ def main() -> None:
         if data.get("stop_hook_active"):
             sys.exit(0)
 
+        # Env var beats the constant - see the note at the top of the file.
+        test_command = os.environ.get("TEST_COMMAND", "").strip() or TEST_COMMAND
+        test_subdir = os.environ.get("TEST_SUBDIR", "").strip() or TEST_SUBDIR
+
         project_root = Path(data.get("cwd") or ".")
-        run_dir = project_root / TEST_SUBDIR if TEST_SUBDIR else project_root
+        run_dir = project_root / test_subdir if test_subdir else project_root
+        if not run_dir.is_dir():
+            print(
+                f"stop_tests_must_pass.py: TEST_SUBDIR {test_subdir!r} does not exist under {project_root}; "
+                "the test gate did NOT run. Fix TEST_SUBDIR.",
+                file=sys.stderr,
+            )
+            sys.exit(1)  # non-blocking error: visible, does not trap the agent
 
         result = subprocess.run(
-            TEST_COMMAND,
+            test_command,
             shell=True,               # run the command VERBATIM, as you typed it
             capture_output=True,
             text=True,
+            errors="replace",         # a stray non-UTF-8 byte in test output must not crash the gate
             cwd=str(run_dir),
             env=_project_env(run_dir),
             timeout=TIMEOUT_SECONDS,
@@ -235,7 +268,7 @@ def main() -> None:
         output = _clip((result.stdout or "") + "\n" + (result.stderr or ""))
         print(
             "BLOCKED: the tests are not passing, so this turn is not done.\n"
-            f"Command: {TEST_COMMAND}\n"
+            f"Command: {test_command}\n"
             f"Exit code: {result.returncode}\n\n"
             f"{output}\n\n"
             "Fix the code under test, then try again. Do NOT edit the tests. "
@@ -255,9 +288,16 @@ def main() -> None:
         )
         sys.exit(0)
 
-    except Exception:
-        # Fail open. A broken guarantee is better than a bricked session.
-        sys.exit(0)
+    except Exception as exc:  # noqa: BLE001
+        # Fail open, loudly. A broken guarantee is better than a bricked
+        # session, but a broken guarantee you cannot see is worse than both.
+        # Exit 1 = non-blocking error: Claude Code shows this and carries on.
+        print(
+            f"stop_tests_must_pass.py crashed ({type(exc).__name__}: {exc}); the test gate did NOT run. "
+            "Allowing the stop. Fix the hook.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,14 @@ append-only line per event is cheap, concurrent-safe enough, and greppable:
 
 Fails OPEN: any error exits 0, so logging can never break your session.
 
+Two things to know about what lands in the log:
+  - It records the COMMAND, not its output. If the agent typed a token into a
+    command line (`curl -H "Authorization: Bearer ..."`), that token is now in
+    `logs/`. `_redact()` scrubs the obvious shapes; it is a courtesy, not a
+    guarantee. Add `logs/` to .gitignore.
+  - It is written by the hook, so an agent with Bash can edit or delete it.
+    It is an audit trail for you, not tamper-evidence against the agent.
+
 MAKE IT YOURS: the common upgrades are auto-formatting a file the moment it is
 edited, or notifying you on a specific tool. Both are PostToolUse. Change
 `summarize()` if you want different fields, or set FULL_PAYLOAD = True to keep
@@ -29,6 +37,7 @@ everything.
 
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -48,9 +57,35 @@ FULL_PAYLOAD = False
 # Long tool inputs are truncated to keep the log readable.
 MAX_FIELD = 300
 
+# Credential shapes scrubbed from the summary before it is written, as (pattern, replacement).
+_VALUE = r"(?:\"[^\"]*\"|'[^']*'|\S+)"   # a quoted value keeps its spaces; an unquoted one ends at one
+_KEYWORD = r"(?:password|passwd|secret|token|api[_-]?key|credential)"
+REDACT = (
+    (re.compile(r"(?i)(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}"), "[REDACTED]"),
+    (re.compile(r"\b(sk|rk|pk)[-_](live|test|proj|ant|or)?[-_]?[A-Za-z0-9]{16,}\b"), "[REDACTED]"),
+    (re.compile(r"\b(gh[pousr]|github_pat)_[A-Za-z0-9_]{20,}\b"), "[REDACTED]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
+    (re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}\b"), "[REDACTED]"),
+    # --password value / --api-key=value. Before NAME=value, so the flag's own `=` is not taken first.
+    (re.compile(r"(?i)(--[\w-]*" + _KEYWORD + r"[\w-]*)(=|\s+)" + _VALUE), r"\1\2[REDACTED]"),
+    # NAME=value / NAME: value, prefixed names included (DB_PASSWORD, OPENAI_API_KEY): `\b` does not
+    # fire between `_` and the keyword, so the name is matched whole. The name is kept, the value is not.
+    (re.compile(r"(?i)(?<![A-Za-z0-9-])([A-Za-z0-9_]*" + _KEYWORD + r"[A-Za-z0-9_]*)(\s*[=:]\s*)" + _VALUE),
+     r"\1\2[REDACTED]"),
+    (re.compile(r"://[^/\s:@]+:[^/\s@]+@"), "://[REDACTED]@"),  # user:pass@ in a URL
+)
+
+
+def _redact(text: str) -> str:
+    """Scrub every credential shape in REDACT from text."""
+    for pattern, replacement in REDACT:
+        text = pattern.sub(replacement, text)
+    return text
+
 
 def _clip(value: object) -> object:
-    text = str(value)
+    """Redact a value and truncate it to MAX_FIELD characters."""
+    text = _redact(str(value))
     return text if len(text) <= MAX_FIELD else text[:MAX_FIELD] + f"... [+{len(text) - MAX_FIELD} chars]"
 
 

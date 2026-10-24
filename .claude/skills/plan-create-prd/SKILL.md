@@ -1,6 +1,6 @@
 ---
 name: plan-create-prd
-description: Interactive, problem-first PRD generator — interviews the user to surface the thesis (the problem, and WHY build it) and a falsifiable hypothesis, then writes a focused PRODUCT-level PRD (problem · evidence · hypothesis · users · MVP · success metrics · non-goals · open questions). Use at the start of a greenfield effort to discuss the product. A PRD is INTENT (what/why), never engineering decisions (how) — those are the `plan-architecture` skill's spec.
+description: "Interviews the user into a problem-first, product-level PRD: thesis (why build it), falsifiable hypothesis, target user & JTBD, MVP, success metrics, non-goals, open questions. Use at the start of a greenfield product or a new epic to capture intent (what/why), never engineering decisions (how) — that is plan-architecture."
 argument-hint: "[product idea] · [optional: paths to research / reference docs to ground in] (blank = start with questions)"
 ---
 
@@ -16,8 +16,8 @@ passed, **ask whether any exist** before interviewing.
 ## The one line
 
 A **PRD is intent** — the problem and your hypotheses about solving it, in a form a team can *challenge before
-building* and *judge after shipping*. An **AI spec is engineering decisions** (the `plan-architecture` skill). AI didn't
-remove the engineering — it moved it **upstream**, which makes the PRD matter *more*.
+building* and *judge after shipping*. An **AI spec is engineering decisions** (the `plan-architecture` skill). AI
+didn't remove the engineering — it moved it **upstream**, which makes the PRD matter *more*.
 
 ## Your role
 
@@ -26,17 +26,20 @@ A sharp product manager who: starts with **problems, not solutions**; demands **
 
 **Anti-fluff rule:** never invent plausible requirements. Unknown → write **"TBD — needs validation"**.
 
+**Interactive only — not for non-interactive runs.** Interview-led and gated; if the caller says the run is
+unattended (`piv-run-full-loop`, a factory, a scheduled job), stop and say so rather than deciding alone.
+
 ## Two hard guards
 
 1. **Intent-framed, not solution-prescriptive.** Don't name the solution in the problem statement.
-   - ❌ "Add a reply button to every message."
-   - ✅ "Past ~100 msgs/day, conversations collide and active users disengage — give them a way to group related replies so they stay."
+   - Bad: "Add a reply button to every message."
+   - Good: "Past ~100 msgs/day, conversations collide and active users disengage — give them a way to group related replies so they stay."
    - **Reframe test:** *if only one solution could fit your problem statement, you've written a spec, not a PRD.* A good problem leaves room for more than one answer.
 2. **A PRD must NEVER decide engineering** *(Osmani's list — these are spec decisions, → `plan-architecture`)*:
    library & version (e.g. "React 18 + Vite," not "a React app") · data-model relationships · security
    boundaries ("never commit secrets") · testing architecture · error handling & retries · project structure.
-   Skipped engineering decisions don't vanish — they become **vulnerabilities** (1,645 audited vibe-coded apps;
-   170 leaked user data). So we don't bury them — we *hand them to the spec*, deliberately.
+   Skipped engineering decisions don't vanish — they resurface as vulnerabilities. So we don't bury them — we
+   *hand them to the spec*, deliberately.
 
 ## Process
 
@@ -81,24 +84,28 @@ We'll know we're WRONG if [counter-signal / a guardrail moves].
 - **MVP = the thinnest line you can build to prove — end to end — that the hypothesis is right or wrong.**
   Not "build the product." Holds → write the full spec, build it proper. Doesn't → you threw away a *slice*,
   not six months.
-- **Door check** *(informs the spike-vs-build call the `plan-architecture`/spec stage makes):* two-way door (reversible)
+- **Door check** *(informs the spike-vs-build call `plan-architecture` makes):* two-way door (reversible)
   → just build it; one-way door (expensive to undo) → spike first.
+- **Destination check:** confirm where the PRD lands — the default local file below, or the tracker page / epic
+  the user named (which space or project).
 - **GATE** before generating.
 
 ### Optional lens — Cagan's four risks
-If useful, pressure-test: **Value** (do they want it — more than the alternative?) · **Usability** (can they
-use it?) · **Feasibility** (can we build it?) · **Viability** (does it work for the business?). Most teams
-over-invest feasibility and under-invest value — and value means wanting it *more than the current cope*.
+If useful, pressure-test: **Value** (do they want it — more than the alternative?) · **Usability** · **Feasibility**
+· **Viability** (does it work for the business?). Most teams over-invest feasibility and under-invest value — and
+value means wanting it *more than the current cope*.
 
 ## Generate the PRD
 
-Write to an **idea-derived filename** so a second PRD never overwrites the first: **`<kebab-slug>.prd.md`**, where
-the slug comes from the epic/product title or the core idea (e.g. `pluggable-ingestion.prd.md`). Put it in `docs/`
-if that exists, else the repo root. (Only write to a literal path if the user passed one in `$ARGUMENTS`.)
-**Never hardcode `PRD.md`.** **If the user names a tracker destination** (e.g. "write it up as a Confluence page"
-or "create it as an epic in Jira"), write it there instead, via the Atlassian MCP or the relevant tool, since
-that is where their team's epics live; the local file is just the default when no destination is given. Product
-sections only, scannable:
+**Where.** Default: an **idea-derived filename**, so a second PRD never overwrites the first — **`<kebab-slug>.prd.md`**
+(slug from the epic/product title or core idea, e.g. `pluggable-ingestion.prd.md`), in `docs/` if that exists,
+else the repo root. **Never hardcode `PRD.md`.** Only write to a literal path if the user passed one in
+`$ARGUMENTS`; if the target file already exists, ask before overwriting. **If the user named a tracker
+destination** ("write it up as a Confluence page", "create it as an epic in Jira"), write it there instead, with
+whatever tool reaches that tracker (e.g. the Atlassian MCP for Jira/Confluence) — that's where their team's epics
+live.
+
+**What.** Product sections only, scannable:
 
 1. **Problem Statement** — who has what problem, and the cost of not solving it.
 2. **Evidence** — what proves it's real (quote / data / observation), or *"Assumption — validate via [method]"*.
@@ -112,24 +119,28 @@ sections only, scannable:
 
 ## Output + hand off
 
-- Confirm where it landed (the **idea-derived filename**, not `PRD.md`, or the **tracker page URL** if a
-  destination was named); 3-5 line summary leading with the **thesis** and **hypothesis**; show what's evidenced
-  vs assumed and the open-questions count.
-- **Next step:** "Decide *how* to build it — run **`plan-architecture`** to make the engineering decisions (the spec)
-  that this PRD deliberately left open. That's what `rules-create-global` then turns into your global rules."
+- Confirm where it landed (filename or tracker URL); 3-5 line summary leading with the **thesis** and
+  **hypothesis**; what's evidenced vs assumed; the open-questions count.
+- **Next step:** "Decide *how* to build it — run **`plan-architecture`** for the engineering decisions (the spec)
+  this PRD deliberately left open; `rules-create-global` turns those into your global rules." Then
+  `piv-slice-epic` cuts epic + architecture into PIV tickets. A simple PRD that only needs a flat backlog, no
+  architecture session, can go straight to `plan-create-stories`.
 
 ## Success criteria — the five tests of a good PRD
 
-- ✅ **Problem grounded in evidence** — not "users want X".
-- ✅ **Hypothesis with a separate RIGHT and WRONG condition** (the most-skipped line).
-- ✅ **Success metrics specific & outcome-shaped** — not "engagement".
-- ✅ **Explicit non-goals.**
-- ✅ **Open questions named, not hidden.**
-- ✅ (guard) **No engineering decisions** — those went to `plan-architecture`.
+Check each before handing off; don't tick what you didn't check:
+
+- [ ] **Problem grounded in evidence** — not "users want X".
+- [ ] **Hypothesis with a separate RIGHT and WRONG condition** (the most-skipped line).
+- [ ] **Success metrics specific & outcome-shaped** — not "engagement".
+- [ ] **Explicit non-goals.**
+- [ ] **Open questions named, not hidden.**
+- [ ] (guard) **No engineering decisions** — those went to `plan-architecture`.
 
 ## Notes
 
-- Interview-led; never generate from thin air. Greenfield-first. On an existing product the epic is the input, and you decide its architecture separately with `plan-architecture`.
+- Interview-led; never generate from thin air. Greenfield-first. On an existing product, run it on the new epic
+  or feature idea — the PRD *is* that epic's intent — and decide its architecture separately with `plan-architecture`.
 - **Solo builder?** Building *for yourself* → you're the user; prove or kill it on yourself fast, you can jump
   closer to a solution. Building *for someone else* → you can't introspect their needs; building it *right*
   beats building it. Either way: thinnest MVP + experiments is how you learn what "right" is.

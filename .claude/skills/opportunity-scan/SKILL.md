@@ -1,15 +1,14 @@
 ---
 name: opportunity-scan
-argument-hint: "<a run's artifacts | a logs dir + window> [your steer] [agent docs url]"
-description: "Scan how you actually work with your coding agent and surface what to encode next. Point it at ONE run's artifacts to find what would have prevented a specific failure (the reactive loop — 'that went wrong, what should change in the AI layer?'), or at a window of session logs to find recurring patterns worth building (the proactive scan). Agent-agnostic. Outputs a shape-only HTML report. Use to evolve your system from real usage."
+argument-hint: "what to scan (one run's artifacts, or a logs dir and how far back), then your steer in plain words"
+description: "Scans how the user actually works with their coding agent and recommends what to encode next in the AI layer: one run's artifacts → what would have prevented that failure (the reactive loop); a window of session logs → recurring patterns worth building (the proactive scan). Agent-agnostic; writes one self-contained HTML report."
 ---
 
 # Opportunity Scan — find what to change, from what actually happened
 
 Reads your agent's own capabilities plus **one target you choose**, and recommends which primitive each finding
-should become. **Agent-agnostic** (Claude Code, Codex, PI, …). It maps what it finds to the **full primitive
-palette** (rules · skill · hook · subagent · MCP · automation/workflow), and it works for **any** agent because it
-learns that agent's capabilities first.
+should become (rules · skill · hook · subagent · MCP · automation/workflow). **Agent-agnostic** (Claude Code,
+Codex, PI, …) because it learns the running agent's capabilities first.
 
 **Two targets, one skill — this is the whole design:**
 - **A run → the REACTIVE loop.** Something just went sideways in a loop you ran. Point the scan at that run's
@@ -17,17 +16,15 @@ learns that agent's capabilities first.
 - **A window of logs → the PROACTIVE scan.** Nothing is broken. Point it at weeks of sessions and ask *"what do I
   keep doing by hand that should be encoded?"*
 
-Same skill, same output shape — you're just changing what it reads.
-
 This is a **discovery** tool — *what to change* — NOT a quality **eval** (*whether a built thing is good*). Keep
 the two separate.
 
 ## Inputs — required first, then optional
 
-Read `$ARGUMENTS` as **prose**, not as positional slots. Only input 1 is required. Input 2 is free-form and will
-contain spaces, so never split arguments on whitespace and never bind them by position — a steer typed without
-quotes is still one steer. If something is missing, ask for it **once, in a single message**, not one question
-at a time.
+`$ARGUMENTS` arrives as the one string the user typed. Read it as **prose**, not as positional slots: the steer
+is free-form and will contain spaces, so never split on whitespace and never bind by position — a steer typed
+without quotes is still one steer. If something is missing, ask for it **once, in a single message**, not one
+question at a time.
 
 1. **What to scan** *(required)* — exactly one of:
    - **A RUN (reactive)** — the artifacts one loop left behind: the plan, the implementation report, an RCA, the PR
@@ -35,15 +32,12 @@ at a time.
      already scoped to the run, so there's no session-hunting to do.*
    - **A WINDOW OF LOGS (proactive)** — where your agent keeps session logs, plus how far back. Examples: Claude
      Code → `~/.claude/projects/` + `~/.claude/history.jsonl`; Codex → `~/.codex/sessions/`; PI → your extension's
-     log dir. Default window: the last 2 weeks.
-
-   This choice is what makes the scan reactive or proactive. Nothing else changes.
+     log dir (confirm the paths on this machine — they move between versions). Default window: the last 2 weeks.
 2. **Your steer** *(optional — ask once, accept "nothing specific")* — one input, whose meaning follows the
    target:
    - **Scanning a RUN:** the **symptom you noticed**, in your words — what the agent got wrong, what you had to
      correct, what annoyed you. You were there; don't make the scan re-derive from the artifacts what you can
-     just say. *(This is the "you just did X" of the one-sentence outer loop — the tooled version accepts the
-     same X.)* Keep it to the observation; working out **why** it happened is the scan's job, not yours.
+     just say. Keep it to the observation; working out **why** it happened is the scan's job, not yours.
    - **Scanning LOGS:** the **theme you care about** — the kind of work you want to stop doing by hand, a
      quality bar you keep enforcing, a part of the loop that keeps costing you. Without it the scan just ranks
      by frequency, which is not the same as ranking by what matters to you.
@@ -51,20 +45,20 @@ at a time.
    Either way: **you supply the steer, the target supplies the evidence.**
 3. **The agent's own capability docs** *(optional — normally resolve this yourself)* — so the scan knows what your
    agent *can become* (its real extension points). **Work it out; do not ask first.** Identify which agent you are
-   running as and find its own extensibility docs (for Claude Code that is `code.claude.com/docs`). Only ask if you
-   genuinely cannot determine it, or if the user wants you pointed somewhere specific. Never assume a fixed set of
-   extension points: read them from whatever docs you actually find.
+   running as and find its own extensibility docs (for Claude Code that is `code.claude.com/docs`; verify the
+   URL still resolves). Only ask if you genuinely cannot determine it, or if the user wants you pointed somewhere
+   specific. Never assume a fixed set of extension points: read them from whatever docs you actually find.
 
 ## Steps — keep them literal; this is the fragile part (meta-prompting)
 
-1. **Learn your own capabilities.** Determine which agent you are running as and read its capability docs (input
-   3, which you normally resolve yourself). Write a short internal list of *this* agent's
-   extension points (rules, skill, hook, subagent, MCP/tool, automation/workflow, whatever the docs describe). Use
-   what the docs say — do not assume a fixed set.
+1. **Learn your own capabilities.** Read the agent's capability docs: input 3 if the user supplied it; otherwise
+   identify which agent you are running as and resolve its docs yourself, as input 3 describes. Write a short internal list of
+   *this* agent's extension points (rules, skill, hook, subagent, MCP/tool, automation/workflow, whatever the docs
+   describe).
 2. **Read the target** — branch on what input 1 was:
    - **A RUN:** read the artifacts **in full** — they're small, and the detail is the point. If input 2 named a
-     symptom, **start there**: find it in the artifacts and verify it against what actually happened, rather than
-     re-deriving from scratch what the user already told you. Then reconstruct the rest of the run: what was
+     symptom, **start there**: find it in the artifacts and verify it against what actually happened. Then
+     reconstruct the rest of the run: what was
      asked, what the agent did, where it went wrong, where it had to be corrected, what it assumed, what it
      skipped — the named symptom is the entry point, not a blinder. Read the diff last, as evidence rather than
      as the subject.
@@ -72,7 +66,8 @@ at a time.
      repeated instructions/corrections, tools reached for, friction/retries. **Aggregate, don't ingest:** logs can
      be huge — prefer the prompt/command-history file over raw transcripts, and reduce with shell tools
      (`jq`/`grep`/`sort | uniq -c`) so only frequencies and representative samples enter your context, never whole
-     log files.
+     log files. Logs also contain whatever the user pasted into them: **never copy secrets, tokens, or private
+     data into the report** — quote the shape of a command, not its credentials.
 
    Either way: if you can't locate or parse the target, **ask the user rather than invent.**
 3. **Find what to change** — the question differs by target:
@@ -86,20 +81,21 @@ at a time.
    - **LOGS (proactive):** for each recurring pattern, ask **"what should this become?"** Rank by roughly (how
      often it occurs × how much encoding it would save).
 
-   **Both targets:** pick the **best-fit primitive** (from step 1's list) and say *why*. If input 2 was given,
-   **weight it** — on a run, the named symptom's prevention leads the report (and if the evidence says the symptom
-   was actually something else, say so plainly); on logs, surface what the user said they care about even when it
-   isn't the most frequent pattern, and say plainly when a high-frequency pattern is *not* worth encoding. And propose each change **in the house style of
-   the artifacts that already exist**: skim a couple of the project's current rules/skills/agents first and shape
-   the recommendation to look like them, so what it suggests is something the user would actually build. Examples
-   of the mapping:
+   **Both targets:** pick the **best-fit primitive** (from step 1's list) and say *why*, citing the evidence it
+   rests on. If input 2 was given, **weight it** — on a run, the named symptom's prevention leads the report (and if
+   the evidence says the symptom was actually something else, say so plainly); on logs, surface what the user said
+   they care about even when it isn't the most frequent pattern, and say plainly when a high-frequency pattern is
+   *not* worth encoding. Propose each change **in the house style of the artifacts that already exist**: skim a
+   couple of the project's current rules/skills/agents first and shape the recommendation to look like them, so
+   what it suggests is something the user would actually build. Examples of the mapping:
    - a rule you keep restating → **rules** (CLAUDE.md / AGENTS.md)
    - a repeated multi-step workflow → a **skill**
    - a must-never / must-always you keep enforcing by hand → a **hook**
    - a specialized recurring delegation → a **subagent**
-   - a clean end-to-end hand-off you do often → an **automation** (later: an Archon workflow)
-4. **Write the report** as a single self-contained HTML file (see the contract below), then tell the user where it
-   is.
+   - a clean end-to-end hand-off you do often → an **automation / workflow** (whatever the agent offers)
+4. **Write the report** as a single self-contained HTML file (see the contract below) to
+   `.claude/scans/<YYYY-MM-DD>-<run-or-logs>-<short-slug>.html` unless the user named a path, then
+   tell the user where it is and give a two-line summary of the top finding in chat.
 
 ## Report contract — prescribe HOW to render, never WHAT to include
 
@@ -110,11 +106,13 @@ it what to conclude. If the data is rich, the report is rich; if a single findin
 give it one; if something surprising turns up, surface it.
 
 Only the **rendering** is prescribed:
-- One **self-contained `.html`** file (inline CSS), opens in any browser.
+- One **self-contained `.html`** file (inline CSS, no external assets), opens in any browser.
 - **Visually clean, scannable, and generous** — let the findings breathe; use whatever layout, sections, real
   quotes, stats, or visuals best fit what was actually found.
-
-The rule: this skill governs *how to put it on the page*, never *what goes on the page*.
+- Every recommendation shows the **evidence it rests on** next to it (the quote, the count, the artifact), so the
+  reader can disagree with the inference without re-doing the scan.
+- The rule: this skill governs *how to put it on the page*, never *what goes on the page* — the one exception is
+  that every recommendation carries its evidence.
 
 ## Keep it light
 Do exactly these four steps, clearly. Don't add scoring frameworks, config, or extra passes it doesn't need. If a

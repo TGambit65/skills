@@ -25,9 +25,14 @@ time anyone can see that happened, it already has.
   screenctl.py scroll --title "..." --amount -3
 
 Exit codes: 0 ok, 1 refused (not found / ambiguous / focus unconfirmed / bad input).
+`doctor` exits 1 when any probe fails.
 
 Every run appends one line per action to ~/.screenctl/actions.log, so a run that
 went wrong is inspectable afterwards instead of being reconstructed from memory.
+The log records window titles and character COUNTS, never the text sent: the
+payload of `type` or `paste` can be a secret. Note that `--text` is still a
+command-line argument, visible to shell history and the process list, so pass a
+secret through `--file` and delete the file afterwards.
 """
 
 from __future__ import annotations
@@ -423,6 +428,7 @@ if OS == "Windows":
         # PowerShell owns this one step because System.Drawing grabs and
         # PNG-encodes together, and a 200ms process start is nothing next to a
         # once-per-step action.
+        """Screenshot one window to a PNG at out, scaled down to max_width when set."""
         w, h = win.w, win.h
         tw = min(w, max_width) if max_width else w
         th = max(1, round(h * tw / w))
@@ -440,7 +446,7 @@ if ({tw} -ne {w}) {{
   $g2.DrawImage($bmp, 0, 0, {tw}, {th})
   $g2.Dispose(); $bmp.Dispose(); $bmp = $small
 }}
-$bmp.Save('{out}', [System.Drawing.Imaging.ImageFormat]::Png)
+$bmp.Save('{out.replace("'", "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
 $bmp.Dispose()
 """
         r = run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
@@ -582,6 +588,7 @@ elif OS == "Darwin":
     def capture(win: Win, out: str, max_width: int) -> None:
         # -R takes POINTS. On a Retina display the PNG comes back at 2x those
         # points. Nothing here tries to predict that: act_shot measures the file.
+        """Screenshot one window to a PNG at out, scaled down to max_width when set."""
         r = run(["screencapture", "-x", "-o",
                  f"-R{win.x},{win.y},{win.w},{win.h}", out])
         if r.returncode != 0:
@@ -709,6 +716,7 @@ else:
     PASTE_CHORD = "ctrl+v"
 
     def capture(win: Win, out: str, max_width: int) -> None:
+        """Screenshot one window to a PNG at out, scaled down to max_width when set."""
         if m := shutil.which("maim"):
             r = run([m, "-i", win.id, out])
         elif i := shutil.which("import"):

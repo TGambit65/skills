@@ -18,7 +18,13 @@ The skill's own copy is never modified: every case runs against a temp clone.
 """
 import io, re, shutil, subprocess, sys, tempfile, pathlib
 
-SK = pathlib.Path(r"C:\Users\colem\OpenSource\skills\.claude\skills\build-dark-factory")
+# The skill is wherever THIS file lives, not where it was written. A hardcoded absolute
+# path here crashed with FileNotFoundError on every machine but one.
+SK = pathlib.Path(__file__).resolve().parents[1]
+if not (SK / "SKILL.md").exists() or not (SK / "scripts" / "_audit_runner.py").exists():
+    print(f"SKIP: {SK} does not look like the build-dark-factory skill "
+          f"(no SKILL.md or scripts/_audit_runner.py); nothing to verify")
+    sys.exit(0)
 
 CASES = [
     # (label, relative path under the COPY, find, replace, substring the audit must print)
@@ -60,6 +66,12 @@ CASES = [
     ("a $ followed by a digit in SKILL.md", "SKILL.md",
      "## Phase 0. The input", "Costs $6 to run.\n\n## Phase 0a",
      "positional argument"),
+    ("level 3 recommended as the default again", "SKILL.md",
+     "**Recommend level 2,", "**Recommend level 3,",
+     "default"),
+    ("level 3 no longer named as the goal", "SKILL.md",
+     "Level 3 is the goal, and it is built for from day one.", "Level 3 exists.",
+     "goal"),
     ("SKILL.md cites a question that does not exist", "SKILL.md",
      "## Phase 0. The input", "See R9.9 for details.\n\n## Phase 0a",
      "R9.9"),

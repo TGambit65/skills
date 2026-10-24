@@ -24,6 +24,10 @@ first fails that run or is far too slow, and say so.
 a good one exists, the page read as Markdown for changelogs, and a hosted scraper or actor
 where neither works. Say which method each source got and why.
 
+Provider names, actor ids, limits and prices below (Apify's run cap and 10 MB limit, the
+`harshmaur/reddit-scraper` figures, HTTP 402 behaviour) were observed on one account at one
+time. Verify each against the provider's current docs and your own first real run.
+
 ## By source type
 
 ### Changelogs and release notes (the most underrated source)

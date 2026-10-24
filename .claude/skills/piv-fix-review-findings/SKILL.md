@@ -1,6 +1,6 @@
 ---
 name: piv-fix-review-findings
-description: Triage code-review findings (manual or AI), fix the ones you choose one at a time with tests, defer/log the rest, then validate — and if the work is on a PR, commit and push so the PR reflects the fixes. Use after a review has produced a list of issues or a review file.
+description: Triages code-review findings (file or list), fixes the chosen ones one at a time with tests, defers the rest, validates, and on a PR branch commits and pushes. Use after a review has produced issues.
 argument-hint: "[code-review-file-or-issues] [scope / what to fix now vs defer]"
 arguments: [review, scope]
 ---
@@ -13,16 +13,21 @@ Code-review (file or description of issues): $review
 
 Direction / scope (what to fix now vs defer): $scope
 
-If the Code-review is a file, **read the entire file first** so you understand every finding before triaging.
+Review files live in **`.claude/code-reviews/`** — that is where `piv-review-changes` and `piv-review-pr` write
+them. If `$review` is empty, use the newest file there and say which one you picked. If the Code-review is a
+file, **read the entire file first** so you understand every finding before triaging. Findings marked
+`Unverified` in the review are not confirmed bugs: verify them yourself before fixing, or route them to the
+"needs a human look" group.
 
 ## 1. Triage first (the human's call)
 
-Sort the findings before touching code. Honor any direction in the scope argument; if it's unclear, surface the
+Sort the findings before touching code. Severities are the shared table in `piv-review-changes` / `piv-review-pr`:
+Critical/High are "fix now" unless you say why not; Medium/Low are your call. Honor any direction in the scope argument; if it's unclear, surface the
 findings grouped and **ask** rather than fixing everything by default:
 
 - **Fix now (this PR)** — real, in-scope, belongs with this change.
-- **Defer / log as an issue** — real but later; don't bloat this PR. **Create a tracker issue** (or note it) instead
-  of fixing it here.
+- **Defer / log as an issue** — real but later; don't bloat this PR. **Create a tracker issue** (`gh issue create`
+  on GitHub, or your tracker's equivalent — or note it) instead of fixing it here.
 - **Needs a human look / manual test** — anything you should inspect or test by hand before trusting it. Flag it,
   don't silently auto-fix.
 - **Noise / won't-fix** — say why, then drop it.
@@ -35,19 +40,25 @@ sprawling one.
 For each:
 1. Explain what was wrong.
 2. Make the fix.
-3. Create and run a test that proves it.
+3. Create and run a test that proves it. If no test can prove it (a rename, a comment, a log line), say so
+   explicitly instead of inventing one.
 
 ## 3. Validate
 
-Run the `piv-validate` skill to finalize the fixes.
+Run the `piv-validate` skill to finalize the fixes and report its per-check results (PASS / FAIL / NOT RUN) and
+overall verdict as given. On FAIL, apply `piv-implement`'s step-4 fix rules — fix the code, never the check;
+**retry cap: 3 fix-and-rerun attempts per failing check** — then re-run `piv-validate`. Still FAIL → list it as a
+blocking item in the report and do not commit.
 
 ## 4. If operating on a PR — commit and push
 
-If these fixes are on a PR branch, **commit them (use `piv-commit`) and push** so the PR reflects the fixes and the
-review can re-run on the updated PR. If nothing was fixed (everything deferred), there's nothing to push — just make
-sure the deferred items are logged as issues.
+Check with `gh pr view --json number,url 2>/dev/null` (an open PR exists for the current branch). If these fixes
+are on a PR branch, **commit them (use `piv-commit`) and push** so the PR reflects the fixes and `piv-review-pr`
+can re-run on the updated PR. The review file itself is a local artifact — `piv-commit` treats `.claude/code-reviews/` as ask-first, default no. If nothing was fixed (everything deferred),
+there's nothing to push — just make sure the deferred items are logged as issues.
 
 ## Output
 
-A short report: what was **fixed** (with its test), what was **deferred/logged** (with issue refs), what needs a
-**manual look/test** — and, if on a PR, the **pushed commit** + confirmation the PR is updated.
+A short report: what was **fixed** (with its test, or why none applies), what was **deferred/logged** (with issue
+refs), what needs a **manual look/test**, what was **dropped** and why — and, if on a PR, the **pushed commit** +
+confirmation the PR is updated.

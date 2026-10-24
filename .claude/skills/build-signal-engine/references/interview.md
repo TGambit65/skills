@@ -1,6 +1,6 @@
 # The interview
 
-**Three questions decide the engine. Five more only the user can answer. Everything else
+**Three questions decide the engine. Six more only the user can answer. Everything else
 is a default they confirm.**
 
 The interview exists because a signal engine is only as good as its filter, and nobody can
@@ -15,8 +15,9 @@ last week, and you turn that into all three, then play it back.
 ## Rules for every question
 
 **Every question goes through the question tool** (`AskUserQuestion`, or the equivalent).
-It always carries an "Other" free-text answer, so an open question loses nothing, and a
-user who would have typed "you pick" corrects the closest of three drafts instead.
+It always carries a free-text answer (Claude Code labels it "Type something."; verify the
+label on your installed version), so an open question loses nothing, and a user who would
+have typed "you pick" corrects the closest of three drafts instead.
 
 - Two to four options, one marked `(Recommended)` and first, its reason in one line.
 - Draft options from what they already told you, and say where each came from. Before
@@ -24,14 +25,14 @@ user who would have typed "you pick" corrects the closest of three drafts instea
 - `header` is 12 characters or fewer.
 - Round 1 questions go one at a time, in order. Later questions can share a call (up to
   four).
-- A question that wants a list is a multi-select of drafted candidates plus Other. What
-  they deselect is as useful as what they keep.
+- A question that wants a list is a multi-select of drafted candidates plus the free-text
+  answer. What they deselect is as useful as what they keep.
 - Offer **"Explain this first"** where a term is not obvious (decision model, stable id,
   shadow week). One breath, in the words below, then ask again.
 - Reflect each answer back as the concrete thing it became: "so the first source is the
   Claude Code changelog, read every morning". Then move on.
 
-**Say where the finish line is.** After Round 1: "Five more about your last few weeks, then
+**Say where the finish line is.** After Round 1: "Six more about your last few weeks, then
 one message of defaults, then I start building."
 
 ---
@@ -136,7 +137,9 @@ deprecation costs more than one extra item.
 (Recommended: one client, one credential, one bill and one spending cap, and the engine
 maps one output shape), a platform they already use (name it), or "you pick per source".
 If they name a platform, it is the answer for every source it covers. Do not talk them out
-of it; ask whether it has an MCP server you can use while you build.
+of it; ask whether it has an MCP server you can use while you build. Whatever they pick, the
+credential goes into the gitignored env file by their own hand (see "Secrets" in
+`SKILL.md`); never ask them to paste a key into the chat.
 
 **They can also name the exact tool for a source** ("Reddit through harshmaur/reddit-scraper,
 changelogs through Web Fetch"). A named tool is final: write it into `PROFILE.md` and use it.
@@ -155,7 +158,7 @@ One message, every remaining setting with its default filled in, ask what to cha
 | Stack | Python + uv, or whatever their repo already uses |
 | Storage | SQLite file in the repo, gitignored |
 | Per-source cap | 50-100 items per source per run, plus a spending cap on anything billed |
-| Decision model | Jev via OpenRouter if they have a key, otherwise a small fast LLM with structured output |
+| Decision model | Jev via OpenRouter if they have a key (`typesafe/jev-1.13` was current when written; check the model page), otherwise a small fast LLM with structured output |
 | Reading model | a mid-tier LLM; the reading pass is one call per run |
 | Digest | ten items, grouped, one or two sentences each, every link kept |
 | Delivery | `digests/YYYY-MM-DD.md` in the repo, plus their R1.3 destination |

@@ -1,6 +1,6 @@
 ---
 name: ablate-ai-layer
-description: Measure whether a repository's AI instructions still earn their place, by running the same real task many times with the layer intact and with it stripped, then grading every rule against what actually changed. Runs both arms itself in throwaway git worktrees and never touches the working tree. Agent-agnostic across CLAUDE.md, AGENTS.md, .claude/, .agents/, .cursor/rules, .clinerules, .windsurfrules and copilot-instructions. Use when the user wants to prune, audit, clean up, shrink or "delete" their CLAUDE.md, AGENTS.md, cursor rules, agent instructions or AI layer; when they ask whether their rules are still needed, whether their context is bloated, or what to cut; or when they mention ablating, ablation, or testing their agent without its instructions.
+description: "Measures whether a repository's AI instructions still earn their place: runs the same real task repeatedly with the layer intact and stripped, in throwaway git worktrees, then grades every rule against what changed. Agent-agnostic: CLAUDE.md, AGENTS.md, .claude/, cursor, cline, windsurf and copilot rules. Use when the user wants to prune, audit, shrink or delete their CLAUDE.md, cursor rules or agent instructions, asks whether their rules are still needed or their context is bloated, or mentions ablating, ablation, or testing the agent without its instructions."
 ---
 
 # Ablate the AI layer
@@ -14,17 +14,22 @@ Do not hand the user a list of commands to run; the script drives both arms.
 
 ## What makes the result trustworthy
 
-- **Both arms, many runs each.** A stripped agent does not visibly fail, so a single
+- **Both arms, several runs each.** A stripped agent does not visibly fail, so a single
   run has nothing to compare against and "seems fine" becomes "delete something
-  load-bearing". Two runs of the *same* arm can also differ more than the two arms
-  differ, so one pair per arm is the floor, not the target.
-- **Nothing is moved aside.** Every run happens in a detached git worktree built
-  from HEAD in a temp directory, outside the repo, and deleted afterwards. The
-  user's working tree is never modified, so there is no restore step to forget.
-- **Only the always-loaded set is stripped by default.** Skills, subagents and
-  path-scoped rules cost nothing until they fire, so deleting them buys back no
-  context. Hooks and permissions are never touched: they run as code and spend no
-  attention.
+  load-bearing". Two runs of the *same* arm can differ more than the two arms differ.
+  My working rule: two runs per arm is the least I will look at, three before acting
+  on the result. That is a recommendation from experience, not a statistical threshold;
+  nothing here computes significance.
+- **Nothing is moved aside.** Every run happens in a detached git worktree built from
+  HEAD in a temp directory, outside the repo, and deleted afterwards even when a run
+  fails. No tracked file in the user's repo is edited; results land in a self-ignored
+  `.ablation/` directory.
+- **Only the always-loaded set is stripped by default.** Skill *bodies*, subagents and
+  path-scoped rules load only when they fire, so deleting them buys back little context.
+  Skill *descriptions* are different: every skill's frontmatter description is listed in
+  context on every session, so a long skill list has a real per-session cost, which
+  `map_layer.py` reports separately. Hooks and permissions are never touched: they run as
+  code and spend no attention.
 
 ---
 
@@ -35,10 +40,9 @@ python <skill>/scripts/map_layer.py [repo_root]
 ```
 
 Read-only. Sorts every artifact into always-loaded, on-demand, and enforcement, and
-prints what the always-loaded set costs on every session before the user types
-anything. Show them that number.
-
-If nothing is found, say so and stop. There is nothing to test.
+prints what the always-loaded set costs on every session, with skill descriptions as a
+separate line. The token figure is chars/4, an estimate for comparing before and after.
+Show the user that number. If nothing is found, say so and stop. There is nothing to test.
 
 ## Step 2. Get the probe task
 
@@ -58,13 +62,14 @@ Write the agreed task verbatim to a file. Every run reuses it byte for byte.
 ## Step 3. Show the plan and get approval
 
 Report before spending anything: how many runs, which model, roughly what it will
-cost, and that the working tree will not be touched.
+cost, and that no tracked file will be edited.
 
 ```bash
 python <skill>/scripts/run_ablation.py <repo> --task-file <task.md> --dry-run
 ```
 
-The dry run also surfaces two things worth pausing on:
+The dry run executes nothing and writes nothing. It prints the exact agent command and
+surfaces three things worth pausing on:
 
 - **A dirty working tree.** Worktrees are built from HEAD, so uncommitted edits are
   not under test. Offer to commit or stash first.
@@ -72,6 +77,10 @@ The dry run also surfaces two things worth pausing on:
   CLI that reads its skill markdown at build time breaks the moment those files go
   missing, and the user will read a compile error as an agent regression. Keep
   `--scope always` if this warns.
+- **Shell access.** The default `claude -p --permission-mode acceptEdits` lets the agent
+  edit files but denies most shell commands, so a task that must run tests or a build
+  needs `--claude-arg=--allowedTools --claude-arg=Bash` (or a `--runner`). Worktrees
+  also start without installed dependencies; say so if the task needs them.
 
 ## Step 4. Run it
 
@@ -79,14 +88,14 @@ The dry run also surfaces two things worth pausing on:
 python <skill>/scripts/run_ablation.py <repo> --task-file <task.md> --runs 2
 ```
 
-This is the whole experiment. It builds a fresh worktree per run, strips the layer
-in the stripped arm, runs the same prompt in each, captures every diff, cleans up
-every worktree, and writes results to `.ablation/<timestamp>/` (gitignored).
+This is the whole experiment. It builds a fresh worktree per run, strips the layer in
+the stripped arm, runs the same prompt in each, restores the stripped files before
+diffing so the diff does not name its arm, captures every diff, cleans up every
+worktree, and writes results to `.ablation/<timestamp>/`.
 
-Useful flags: `--runs 3` when the user intends to act on the result, `--scope all`
-to test the harder claim that skills and subagents have expired too, `--model`,
-`--jobs` for concurrency, `--runner` for a non-Claude agent that reads a prompt on
-stdin.
+Useful flags: `--runs 3` when the user intends to act on the result, `--scope all` to
+test the harder claim that skills and subagents have expired too, `--model`, `--jobs`
+for concurrency, `--runner` for a non-Claude agent that reads a prompt on stdin.
 
 If an arm produced nothing usable, stop. An empty arm is a broken experiment, not a
 finding. Re-run before drawing anything from it.
@@ -144,6 +153,9 @@ the old one.
   conventions from neighbouring code when there is a neighbour to copy. The same
   rule can hold in an edited file and break in a new one. Weight new-file evidence
   more heavily and say which kind each verdict rests on.
+- **Both arms still see whatever loads from outside the repo.** A user-level
+  `~/.claude/CLAUDE.md` or global rules file is not stripped. If one exists, say so:
+  it narrows what the experiment can attribute to the repo's own layer.
 - **Cheaper and smaller models lean on instructions more than frontier models do.**
   A layer that looks redundant under a frontier model may still be carrying a
   cheaper one. If the team runs a mix, ablate against the weakest model in use.

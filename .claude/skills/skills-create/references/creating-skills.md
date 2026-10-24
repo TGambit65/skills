@@ -31,9 +31,15 @@ Write the list down before scaffolding. It's the skill's blueprint.
 
 ```bash
 mkdir -p .claude/skills/<name>
-cp .claude/skills/skills-create/templates/SKILL.template.md .claude/skills/<name>/SKILL.md
+cp "${CLAUDE_SKILL_DIR}/templates/SKILL.template.md" .claude/skills/<name>/SKILL.md
 # add references/ templates/ scripts/ assets/ only as the plan requires
 ```
+
+`${CLAUDE_SKILL_DIR}` is the directory of *this* skill (skills-create), wherever it is installed — project,
+global, or plugin. Outside Claude Code, resolve the template from where skills-create lives (next to the
+`SKILL.md` that pointed you here); never assume a fixed project-relative path for skills-create — under a plugin
+or `-g` install it is not in the project at all. Scaffold into the project's `.claude/skills/` (or `~/.claude/skills/` if the user wants
+it everywhere).
 
 Naming: `lowercase-hyphen`, descriptive, prefixed if part of a family (the pack's `piv-*`, `plan-*`, `rules-*`,
 `prime-*`). **Directory name = the `/command`.**
@@ -42,9 +48,13 @@ Naming: `lowercase-hyphen`, descriptive, prefixed if part of a family (the pack'
 
 Write `SKILL.md` to the standard:
 - **Description** — third person, lead with what it does, then "Use when …" with the literal triggers from Step 1.
-  Include the `/name` invocation as one trigger.
+  Include the `/name` invocation as one trigger. ≤1024 chars; the key use case in the first sentence (Claude Code
+  truncates long listings).
 - **Body (imperative)** — the decision logic + workflow only. Each step verb-first. Where a step needs bulk
-  detail, write a one-line pointer to a reference instead of inlining it.
+  detail, write a one-line pointer to a reference instead of inlining it. If the skill takes positional inputs,
+  declare them (`arguments: [a, b]`) and use each as `$a` / `$b`; otherwise read `$ARGUMENTS`.
+- **Claude-only mechanics** (`AskUserQuestion`, the Task tool, `!` dynamic context) — name the fallback in the same
+  sentence ("ask the user — AskUserQuestion where available") so the skill still works in another agent.
 - **Invocation** — omit `user-invocable` / `disable-model-invocation` for a normal read/plan skill (both paths
   open); set `disable-model-invocation: true` if it's distributed *and* side-effecting (see standards).
 - End with a **Resources** section listing every bundled file.

@@ -1,6 +1,6 @@
 ---
 name: piv-validate
-description: Runs this project's full validation suite — tests, type checks, and linting across every part of the stack — then reports overall health. Use before committing, before opening a PR, or after finishing a chunk of work to confirm zero regressions.
+description: Runs the project's tests, type checks and lint and returns one PASS/FAIL verdict. Use before committing or opening a PR to confirm zero regressions. Use before committing, before opening a PR, or after finishing a chunk of work.
 ---
 
 # Validate
@@ -22,9 +22,14 @@ Run every check this project has and report a single PASS/FAIL verdict.
 >    `uv run pytest` from the repo root.
 > 2. **Cross-platform.** Avoid POSIX-only idioms if anyone on the team is on Windows — `lsof`,
 >    `python3`, and background-then-`kill` are the common offenders.
+>
+> **Until you do:** if a `REPLACE` placeholder is still in a step below, do not guess a command for it.
+> Report that check as `NOT RUN — piv-validate not configured` and say so in the verdict.
 
 Run the checks in order. Keep going after a failure so the report covers everything, and capture the
-output of any command that fails.
+output of any command that fails or cannot run.
+
+This skill asks nothing and is safe in a non-interactive run.
 
 ## 1. Tests
 
@@ -74,17 +79,25 @@ skill — the background-and-kill idiom is not portable.
 
 ## 6. Summary report
 
-Report each check with a ✅ or ❌, then an overall verdict:
+Report each check with one of three statuses, then an overall verdict:
 
-- One line per check
-- **Overall: PASS or FAIL**
+- **PASS** — the command ran and met its *Expected* line.
+- **FAIL** — the command ran and did not. Include the failing command and the relevant output.
+- **NOT RUN** — the command did not run to a result: tool missing, wrong directory, placeholder never
+  replaced, timeout, or an optional check skipped by its own rule. Include the reason (and the error).
+  A check that could not run is reported as NOT RUN, never as a pass.
 
-For every ❌, include the failing command and the relevant output. Do not fix anything here —
-this skill reports; fixing is a separate step.
+Then:
+
+- One line per check, with a pasted excerpt of the real output (counts), not a paraphrase
+- **Overall: PASS** only when every required check is PASS. Any FAIL, or any required check NOT RUN,
+  makes it **Overall: FAIL** — name which. An optional check skipped by its own rule does not block PASS.
+
+Do not fix anything here — this skill reports; fixing is a separate step.
 
 ## Notes
 
 - Keep this skill fast. It runs before every commit; if a step gets slow, that is a signal to fix the
   slow step, not to drop it from the checker.
 - A checker that cannot fail is worthless. Once your commands are wired in, break something on
-  purpose and confirm this skill reports ❌.
+  purpose and confirm this skill reports FAIL.

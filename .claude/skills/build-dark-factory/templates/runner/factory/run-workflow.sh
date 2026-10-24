@@ -224,6 +224,47 @@ materialise() {         # materialise <issue-target>
 # the exact assertions. --disallowedTools is enforced by the agent, not by the prompt.
 HOLDOUT_DENY="Read($FACTORY_HOLDOUT_DIR/**) Glob($FACTORY_HOLDOUT_DIR/**) Grep($FACTORY_HOLDOUT_DIR/**)"
 
+# The same wall, for credentials. The pre-flight stops a secret file being COMMITTED;
+# nothing stopped a node READING one. A node that opens `.env` can paste its contents
+# into a plan, a PR body or a review summary, and two of those are posted to GitHub.
+# Built from FACTORY_SECRET_FILES so the one list in config.sh governs both directions.
+# Read only: a Bash(cat .env) rule is one `head` away from useless and would read as
+# protection.
+#
+# WHAT THIS DOES NOT COVER, said plainly so nobody counts it twice: a Read() rule binds the
+# Read tool and nothing else. A node that can execute code -- implement has
+# Bash(python -c:*), and implement and fix both run the quick gate over code they just
+# wrote -- can open any file this OS user can, by absolute path, whatever this list says.
+# Dropping `python -c` would not close that; the quick gate is the same door. The real
+# control is that the secret is not on the node's filesystem: build nodes work in a fresh
+# worktree, where an ignored file does not exist unless someone copies it in, and
+# assert_no_reachable_secrets() refuses to run them, or to validate a branch, if one is
+# there OR in the root checkout, which every node reaches through --add-dir "$ROOT" (a
+# relative Read(.env) deny matches only the node's own cwd). A secret that must not
+# reach a code-running node does not belong in this checkout at all
+# (templates/runner/README.md, "Secret files"). Files outside the checkout that this OS
+# user can read are beyond what a runner can check; keep them off the factory host.
+SECRET_DENY=""
+for _sf in $FACTORY_SECRET_FILES; do
+  SECRET_DENY="$SECRET_DENY Read($_sf)"
+done
+
+assert_no_reachable_secrets() {   # assert_no_reachable_secrets <worktree>
+  # Run before any node that can execute code, and before the gate runs a branch's code
+  # (validate-pr). An ignored file is absent from a fresh
+  # worktree; if one is present, something copied it there. The root checkout is the
+  # other place a node reaches by path: ignored files live there, and the pre-flight's
+  # check-ignore proves only that they cannot be committed, not that they cannot be read.
+  # In either place the Read() deny above is all that would stand between the file and
+  # `python -c`, so a build lap refuses to start rather than trust it.
+  local _sf
+  for _sf in $FACTORY_SECRET_FILES; do
+    [ -e "$1/$_sf" ] && escalate "PREFLIGHT: $1/$_sf exists in the build worktree; a code-running node could read it past the Read() deny. Remove it from the worktree."
+    [ -e "$ROOT/$_sf" ] && escalate "PREFLIGHT: $ROOT/$_sf exists in the factory checkout, which every node reaches through --add-dir; code a node runs could read it past the Read() deny. Move it out of the checkout (templates/runner/README.md, \"Secret files\")."
+  done
+  return 0
+}
+
 node() {                # node <name> <model> <prompt-file> <allowed-tools>
   local name="$1" model="$2" prompt="$3" tools="$4"
   log "NODE $name (model=$model)"
@@ -263,11 +304,21 @@ node() {                # node <name> <model> <prompt-file> <allowed-tools>
     return 1
   fi
 
-  # shellcheck disable=SC2086 -- HOLDOUT_DENY is a deliberate word list, not one argument.
+  # THESE FLAGS ARE CLAUDE CODE'S, AND THEY MOVE. Checked against the CLI reference on
+  # 2026-10-22: -p, --model, --allowedTools, --disallowedTools, --permission-mode
+  # (acceptEdits auto-approves file edits only; Bash still needs the allowlist),
+  # --add-dir, --max-budget-usd (print mode only; enforcement needs v2.1.217+) and
+  # --output-format json all exist. VERIFY AGAINST THE INSTALLED VERSION before the
+  # first unattended run - references/automation.md has the one-line loop - because a
+  # flag this CLI does not know is not rejected, it falls through into the prompt.
+  # Another agent: rewrite this block to its contract (automation.md, table 1).
+  #
+  # HOLDOUT_DENY and SECRET_DENY are deliberate word lists, split on purpose.
+  # shellcheck disable=SC2086
   if ! "$AGENT" -p "$(cat "$rendered")" \
         --model "$model" \
         --allowedTools "$tools" \
-        --disallowedTools $HOLDOUT_DENY \
+        --disallowedTools $HOLDOUT_DENY $SECRET_DENY \
         --permission-mode acceptEdits \
         --add-dir "$ROOT" \
         --max-budget-usd "$MAX_BUDGET" \
@@ -393,6 +444,7 @@ case "$WORKFLOW" in
     prepare_worktree_path "$WT"
     git rev-parse --verify --quiet "$BRANCH" >/dev/null && git branch -D "$BRANCH" >/dev/null 2>&1 || true
     git worktree add "$WT" -b "$BRANCH" "$BASE" >/dev/null 2>&1 || escalate "could not create worktree $WT"
+    assert_no_reachable_secrets "$WT"
     python factory/state.py set "$TARGET" state=in-progress || escalate "illegal state transition"
 
     (
@@ -606,6 +658,10 @@ case "$WORKFLOW" in
 
     prepare_worktree_path "$WT"
     git worktree add --detach "$WT" "$CHECKOUT" >/dev/null 2>&1 || escalate "could not check out $CHECKOUT"
+    # The gate below runs the BRANCH's code in this worktree, and the judge holds Read with
+    # --add-dir "$ROOT", where a relative Read(.env) deny does not reach. Same check as a
+    # build lap, before either one starts.
+    assert_no_reachable_secrets "$WT"
 
     # Governance from the BASE branch, before the branch under review is read. On GitHub
     # that is origin/main and not the local main -- reading the local copy would judge the
@@ -691,6 +747,7 @@ case "$WORKFLOW" in
     WT=".worktrees/f$ISSUE_NUM"
     prepare_worktree_path "$WT"
     git worktree add "$WT" "$BRANCH" >/dev/null 2>&1 || escalate "could not check out $BRANCH"
+    assert_no_reachable_secrets "$WT"
 
     ( cd "$WT" && node fix "$MODEL_CHEAP" "$ROOT/factory/prompts/fix.md" \
         "Read,Glob,Grep,Edit,Write,Bash($FACTORY_VALIDATE_QUICK)" ) \

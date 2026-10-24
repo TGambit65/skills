@@ -92,7 +92,11 @@ saves on reading, never on the cost of fetching the data.
 
 ## Calling Jev (TypeSafe's decision model on OpenRouter)
 
-One POST per item, with the user's OpenRouter key as a Bearer token:
+One POST per item, with the user's OpenRouter key as a Bearer token, loaded from the env
+file by the program (never pasted into the chat or into code). The endpoint, model id and
+response shape below matched OpenRouter's Decisions API docs when written; the endpoint is
+marked alpha and newer Jev releases exist (`~typesafe/jev-latest` tracks them), so verify
+against the current docs before building on it:
 
 ```
 POST https://openrouter.ai/api/alpha/decisions

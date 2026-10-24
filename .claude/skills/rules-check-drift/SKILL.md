@@ -1,7 +1,7 @@
 ---
 name: rules-check-drift
-description: "Check whether your rules file (CLAUDE.md or AGENTS.md) still matches the codebase after recent changes — run before a merge, or fold into your code-review pass. Reports stale/now-false rules, drifted architecture-map entries, and any new invariant worth adding, each with the minimal edit. Advisory and anti-bloat: it keeps the rules file true, never longer than it needs to be."
-argument-hint: "[optional diff range, e.g. main...HEAD]"
+description: "Checks whether CLAUDE.md or AGENTS.md is still true after recent changes: flags now-false rules, drifted map entries, and new invariants, each with the minimal edit. Advisory, anti-bloat. Use before a merge, in a review pass, or when the user says \"check rules drift\", \"is CLAUDE.md still accurate\", or invokes /rules-check-drift."
+argument-hint: "[optional diff range, e.g. <base>...HEAD]"
 ---
 
 # /rules-check-drift — keep your rules file true, not longer
@@ -15,7 +15,11 @@ rules file against what just changed and proposes the **smallest** edit that kee
 > need *no* edit at all — adding a wrong or verbose line makes it worse.
 
 ## Input
-- `$ARGUMENTS` — optional diff range. Default: uncommitted + staged (`git diff HEAD`); fall back to `main...HEAD`.
+- `$ARGUMENTS` — optional diff range. Default: uncommitted + staged (`git diff HEAD`). If that is empty, use
+  `<base>...HEAD`, where `<base>` is the detected default branch: `git symbolic-ref refs/remotes/origin/HEAD`
+  (strip `refs/remotes/origin/`); if unset, the `HEAD branch` line of `git remote show origin`; if neither answers
+  (no remote), use `main` or `master` only if that branch exists locally (`git rev-parse --verify --quiet <name>`)
+  and say so; otherwise ask the user for the base (unattended: stop and say no base branch could be found).
 - **Scope: the project's rules file(s)** — `CLAUDE.md` and/or `AGENTS.md`, the root file + any package-level
   ones. (If `CLAUDE.md` is just a `@AGENTS.md` import, check `AGENTS.md`.) Ignore README, `docs/`, and `.claude/`
   agent/command/skill files. This skill exists to keep the *rules* honest, nothing else.
@@ -64,7 +68,7 @@ background/rationale/prose that doesn't steer future work.
 If nothing drifted: **"The rules file is still accurate for these changes — no edits needed."**
 
 ## Rules
-- **Advisory.** Report the drift; only apply/piv-commit edits if the caller explicitly asks.
+- **Advisory.** Report the drift; only apply/commit edits if the caller explicitly asks.
 - **Rules file only** (`CLAUDE.md` / `AGENTS.md`). Not README, not docs.
 - **Lean by default.** When in doubt, suggest nothing.
 - **Run it before every merge** (or as part of `/piv-review-changes`) so your rules never drift behind the code.

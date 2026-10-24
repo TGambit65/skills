@@ -2,7 +2,11 @@
 
 How to start agent sessions on someone's machine and steer them from outside, plus
 the per-OS setup the primitives depend on. Read this with `SKILL.md`, which holds
-the hard rules and the primitive reference.
+the hard rules and the primitive reference, and `troubleshooting.md`, which holds
+the traps and the symptom table.
+
+Terminal and editor flags quoted below were checked on one version of each tool;
+verify any flag against your installed version before building a demo on it.
 
 - [First run, per operating system](#first-run-per-operating-system)
 - [Choosing the surface](#choosing-the-surface)
@@ -103,12 +107,13 @@ ghostty --title="DEMO-1" --working-directory=/path/to/repo -e claude
 
 Windows Terminal's `--title` is overridden by whatever the running program sets
 unless you also pass `--suppressApplicationTitle`. Ghostty is the opposite: setting
-`--title` makes it ignore the program's own title sequences.
+`--title` makes it ignore the program's own title sequences. (Both observed on one
+version; verify against yours.)
 
 **Editor integrated terminals,** when it has to look like a real working session on
 camera. Several sessions stay visible at once and the window title is stable enough
-to target. This is the highest-friction option and the one the traps in `SKILL.md`
-are mostly about.
+to target. This is the highest-friction option and the one the traps in
+`troubleshooting.md` are mostly about.
 
 ---
 
@@ -150,16 +155,18 @@ python $S key   --title "$T" --keys ctrl+shift+backtick   # new terminal
 python $S shot  --title "$T" --out /tmp/t1.png            # confirm it opened
 ```
 
-`Ctrl+Shift+backtick` opens a new integrated terminal on all three platforms,
-macOS included: the editor binds the physical Control key there, not Command.
+`Ctrl+Shift+backtick` opens a new integrated terminal in VS Code on all three
+platforms, macOS included: the editor binds the physical Control key there, not
+Command. Other editors differ; check the keybinding before sending it.
 
 Spell it `backtick`, not `` ` ``. A literal backtick inside double quotes is command
 substitution in most shells, and a bare punctuation character has no virtual key
 code to map to anyway. The same applies to `minus`, `equals`, `comma`, `period`,
 `slash` and `semicolon`.
 
-Then launch, clearing the inherited environment (trap 2 in `SKILL.md`) and
-**assigning the session ID up front** rather than discovering it afterwards:
+Then launch, clearing the inherited environment (trap 2 in `troubleshooting.md`;
+the PowerShell form is there too) and **assigning the session ID up front** rather
+than discovering it afterwards:
 
 ```bash
 UUID=$(python -c "import uuid; print(uuid.uuid4())")

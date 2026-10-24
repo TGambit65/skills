@@ -65,6 +65,52 @@ FACTORY_SRC: Path | None = None          # set by --repo; None means "the templa
 BASH = shutil.which("bash") or "bash"
 
 
+def write_lf(p: Path, text: str) -> None:
+    """Write text with LF endings on every platform.
+
+    `Path.write_text(..., newline=)` is Python 3.10+; this suite must run on 3.8, and on
+    3.9 the old call died with TypeError before a single test ran.
+    """
+    with open(p, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+
+
+def _shim_python_on_path() -> "str | None":
+    """The runner's shell scripts call `python`, bare. Many Linux and macOS machines ship
+    only `python3`, so every lap would die at the first `python factory/state.py` for a
+    reason that has nothing to do with the defect under test. When `python` is missing,
+    put a shim directory on PATH that resolves it to this interpreter. Returns the shim
+    dir so the caller can report it, or None when nothing was needed.
+    """
+    if shutil.which("python"):
+        return None
+    shim = Path(tempfile.mkdtemp(prefix="factory-suite-pyshim-"))
+    link = shim / "python"
+    # An sh wrapper rather than a symlink or a .cmd: everything under test runs inside
+    # bash, which finds and executes a shebang script on every platform including Git
+    # Bash on Windows, and does not reliably resolve `python.cmd`. The interpreter path is
+    # quoted for the spaces Windows installs put in it.
+    exe = sys.executable.replace("\\", "/")
+    write_lf(link, f'#!/bin/sh\nexec "{exe}" "$@"\n')
+    try:
+        link.chmod(0o755)
+    except OSError:
+        pass
+    os.environ["PATH"] = str(shim) + os.pathsep + os.environ.get("PATH", "")
+    return str(shim)
+
+
+def _missing_prerequisites() -> "list[str]":
+    """What this suite cannot run without. Reported as a SKIP, never a crash: a missing
+    `bash` on Windows (no Git for Windows) is a fact about the machine, not the runner."""
+    missing = []
+    if not shutil.which("bash"):
+        missing.append("bash (on Windows: Git for Windows provides it)")
+    if not shutil.which("git"):
+        missing.append("git")
+    return missing
+
+
 # =============================================================================
 # the fixture
 # =============================================================================
@@ -109,9 +155,10 @@ class Factory:
         return p.read_text(encoding="utf-8", errors="replace") if p.exists() else ""
 
     def write(self, rel: str, text: str):
+        """Write text to a path relative to the fixture root, with LF line endings."""
         p = self.root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(text, encoding="utf-8", newline="\n")
+        write_lf(p, text)
 
     def state_of(self, rel: str) -> str:
         m = re.search(r"^state:\s*(\S+)", self.read(rel), re.M)
@@ -216,6 +263,10 @@ def build_pristine(dest: Path) -> Path:
     f = Factory(dest)
 
     subprocess.run(["git", "init", "-q"], cwd=dest, check=True)
+    # The runner's base is `main`, always. A machine whose git still defaults to `master`
+    # (anything without init.defaultBranch set) built a fixture the runner could not diff
+    # against, and two tests failed for a reason that had nothing to do with the runner.
+    subprocess.run(["git", "symbolic-ref", "HEAD", "refs/heads/main"], cwd=dest, check=True)
     for k, v in (("core.autocrlf", "false"), ("user.email", "f@f.f"),
                  ("user.name", "fixture"), ("commit.gpgsign", "false")):
         subprocess.run(["git", "config", k, v], cwd=dest, check=True)
@@ -346,7 +397,7 @@ echo >> .factory/notifications/feed.log
                  'FACTORY_VALIDATE_CMD="${FACTORY_VALIDATE_CMD:-python harness/ci.py}"', cfg)
     cfg = re.sub(r'FACTORY_VALIDATE_QUICK="\$\{FACTORY_VALIDATE_QUICK:-[^}]*\}"',
                  'FACTORY_VALIDATE_QUICK="${FACTORY_VALIDATE_QUICK:-python harness/ci.py --quick}"', cfg)
-    cfgp.write_text(cfg, encoding="utf-8", newline="\n")
+    write_lf(cfgp, cfg)
 
     for _exe in ("stub-agent.sh", "notify.sh"):
         _p = dest / "factory" / _exe
@@ -621,10 +672,45 @@ def test_untitled_issue_does_not_kill_the_runner(f: Factory):
        f"the run died before reaching any build node -- the title grep is still fatal:\n{out[-1500:]}")
 
 
+@test("an ignored secret in the factory checkout passed the pre-flight, and every build node "
+      "reaches that checkout through --add-dir, so code a node wrote could read it past the "
+      "Read() deny")
+def test_secret_in_root_checkout_blocks_build_nodes(f: Factory):
+    """A FACTORY_SECRET_FILES entry present in the root checkout must stop the lap before any node runs."""
+    f.issue("0001-widget", state="accepted")
+    f.write(".env", "API_KEY=do-not-read-me\n")
+    f.node_action("implement", NODE_WRITES_A_FILE)
+    f.clear_signals()
+    rc, out = f.run("implement-issue", "issues/0001-widget.md")
+    has(out, "PREFLIGHT_OK", "the .env was not git-ignored in the fixture; this probes the wrong check")
+    has(out, "exists in the factory checkout", "a secret in the root checkout did not stop the lap")
+    ok("NODE prime" not in out and "NODE implement" not in out,
+       f"a build node ran with a readable secret in the checkout:\n{out[-1500:]}")
+    ok(f.state_of("issues/0001-widget.md") == "needs-human",
+       "the refused lap left the issue dispatchable -- it will be refused again every tick")
+
+
+@test("validate-pr runs the branch's code through the gate and hands the judge Read with "
+      "--add-dir on the root checkout, and it never checked for a secret there")
+def test_secret_in_root_checkout_blocks_validation(f: Factory):
+    """A FACTORY_SECRET_FILES entry in the root checkout must stop validate-pr before the gate or judge."""
+    f.issue("0001-widget", state="in-progress")
+    f.pr("0001-widget", state="open")
+    f.sh("git branch factory/0001-widget")
+    f.write(".env", "API_KEY=do-not-read-me\n")
+    f.clear_signals()
+    rc, out = f.run("validate-pr", ".factory/prs/0001-widget.md")
+    has(out, "exists in the factory checkout", "a secret in the root checkout did not stop validation")
+    ok("NODE judge" not in out, f"the judge ran with a readable secret in the checkout:\n{out[-1500:]}")
+    ok(f.state_of(".factory/prs/0001-widget.md") == "needs-human",
+       "the refused validation left the PR dispatchable")
+
+
 @test("an unguarded command failing under `set -e` produced exit 1 and NOTHING else: no "
       "state change, no ledger, no notification, and the orchestrator discarded the "
       "runner's exit status so nothing downstream noticed either")
 def test_unguarded_failure_escalates_loudly(f: Factory):
+    """A command failing after the ERR trap is installed must escalate, not exit silently."""
     f.issue("0001-widget", state="accepted")
     # Inject a failing command at top level, after the ERR trap is installed.
     p = f.root / "factory" / "run-workflow.sh"
@@ -632,7 +718,7 @@ def test_unguarded_failure_escalates_loudly(f: Factory):
     needle = 'log "PREFLIGHT_OK'
     ok(needle in s, "run-workflow.sh no longer logs PREFLIGHT_OK; the probe needs updating")
     s = s.replace(needle, 'grep -q "NO_SUCH_TOKEN_IN_THIS_FILE" factory/config.sh\n' + needle, 1)
-    p.write_text(s, encoding="utf-8", newline="\n")
+    write_lf(p, s)
 
     f.clear_signals()
     rc, out = f.run("implement-issue", "issues/0001-widget.md")
@@ -646,13 +732,14 @@ def test_unguarded_failure_escalates_loudly(f: Factory):
 @test("the orchestrator dispatches the runner into a background subshell and never read "
       "its exit status, so a runner fault left no trace the dispatcher could see")
 def test_orchestrator_records_runner_faults(f: Factory):
+    """A runner that dies before its ERR trap must still be recorded by the dispatcher's backstop."""
     f.issue("0001-widget", state="accepted")
     p = f.root / "factory" / "run-workflow.sh"
     s = p.read_text(encoding="utf-8")
     # Die BEFORE the ERR trap is installed, so only the dispatcher's backstop can catch it.
     s = s.replace("set -euo pipefail",
                   "set -euo pipefail\ngrep -q NO_SUCH_TOKEN_EARLY factory/config.sh", 1)
-    p.write_text(s, encoding="utf-8", newline="\n")
+    write_lf(p, s)
 
     rc, out = f.tick()
     # `dispatch` backgrounds the runner (`&`), so the tick returns before the subshell
@@ -668,12 +755,13 @@ def test_orchestrator_records_runner_faults(f: Factory):
       "unguarded failure there loses the whole tick -- the reaper, the sweep and every "
       "dispatch after it -- and no exit code goes anywhere anyone looks")
 def test_dispatcher_fault_is_loud(f: Factory):
+    """A fault inside the dispatcher itself must be reported, not swallowed."""
     p = f.root / "factory" / "orchestrator.sh"
     s = p.read_text(encoding="utf-8")
     needle = "# 1. THE STOP BUTTON"
     ok(needle in s, "orchestrator.sh changed shape; this probe needs updating")
     s = s.replace(needle, 'grep -q "NO_SUCH_DISPATCHER_TOKEN" factory/config.sh\n' + needle, 1)
-    p.write_text(s, encoding="utf-8", newline="\n")
+    write_lf(p, s)
 
     f.clear_signals()
     rc, out = f.tick()
@@ -844,8 +932,82 @@ def test_stop_file_halts_the_dispatcher(f: Factory):
 
 @test("autonomy 0 is how you pause a factory: nothing may dispatch")
 def test_autonomy_zero_dispatches_nothing(f: Factory):
+    """At autonomy level 0 the dispatcher hands out no work."""
     rc, out = f.tick(env={"FACTORY_AUTONOMY": "0"})
     hasnt(out, "DISPATCH ", "work was dispatched at autonomy 0")
+
+
+def _run_record(f: Factory, usd, hhmmss="010000", wf="implement-issue"):
+    """A run record dated today (UTC), the shape run-workflow's EXIT trap writes via
+    `cost.py record`. `usd=None` means the agent reported no cost figure."""
+    import datetime, json as _json
+    day = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
+    run = f"{day}T{hhmmss}-{wf}"
+    node = {"node": "plan", "model": "stub", "input": 1, "output": 1, "cache_read": 0,
+            "cost_usd": usd}
+    f.write(f".factory/runs/{run}.json", _json.dumps(
+        {"run": run, "nodes": [node], "tokens": {"input": 1, "output": 1, "cache_read": 0},
+         "cost_usd": usd, "cost_complete": usd is not None}))
+
+
+@test("the per-run cap bounds a lap and nothing bounded the day: a fix loop on a cron ran "
+      "lap after lap, each under budget, until the invoice. At or over "
+      "FACTORY_MAX_DAILY_USD the dispatcher must refuse, say so, and tell a human ONCE")
+def test_daily_cap_halts_dispatch_and_notifies_once(f: Factory):
+    """Over the daily cap, nothing is dispatched and the human is notified once per day."""
+    f.clear_signals()
+    _run_record(f, 30.0, "010000")
+    _run_record(f, 25.0, "020000")
+    rc, out = f.tick(env={"FACTORY_MAX_DAILY_USD": "50"})
+    hasnt(out, "DISPATCH ", "work was dispatched with the day over budget")
+    has(out, "DAILY_CAP", "the refusal was not announced")
+    has(out, "OVER", "the refusal did not name the cap")
+    has(f.ledger(), "daily spend cap", "the cap did not reach needs-human.md")
+    has(f.notifications(), "daily spend cap", "the cap did not notify")
+    first = f.notifications()
+    rc, out = f.tick(env={"FACTORY_MAX_DAILY_USD": "50"})
+    hasnt(out, "DISPATCH ", "the second tick dispatched over budget")
+    ok(f.notifications() == first, "the cap notified again on the next tick; once a day")
+
+
+@test("a day UNDER the cap must dispatch normally, and a cap of 0 must switch the guard "
+      "off - a guard that refuses everything is indistinguishable from a wedge")
+def test_daily_cap_under_budget_dispatches(f: Factory):
+    """Under the daily cap (or with the cap off), work is dispatched as normal."""
+    _run_record(f, 10.0)
+    rc, out = f.tick(env={"FACTORY_MAX_DAILY_USD": "50"})
+    has(out, "DAILY_SPEND", "the day's spend was not reported")
+    has(out, "DISPATCH ", "an under-budget day did not dispatch")
+    g = fresh(TMP_FOR_SUBCASES, "daily-cap-off")
+    try:
+        _run_record(g, 500.0)
+        rc, out = g.tick(env={"FACTORY_MAX_DAILY_USD": "0"})
+        has(out, "DISPATCH ", "FACTORY_MAX_DAILY_USD=0 did not disable the guard")
+    finally:
+        shutil.rmtree(g.root, ignore_errors=True)
+
+
+@test("a run whose agent reported NO cost figure must be counted as unmeasured and said "
+      "so, not silently read as zero spend")
+def test_daily_cap_reports_unmeasured_runs(f: Factory):
+    """A run with no recorded cost is counted as unmeasured, not as free."""
+    _run_record(f, None)
+    rc, out = f.tick(env={"FACTORY_MAX_DAILY_USD": "50"})
+    has(out, "unmeasured=1", "an uncosted run was not reported as unmeasured")
+
+
+@test("a run record dated today that could not be parsed was skipped, so its spend read as "
+      "zero and an over-budget day could dispatch again")
+def test_daily_cap_fails_closed_on_an_unreadable_record(f: Factory):
+    """A corrupt run record dated today must stop dispatch, not be counted as free."""
+    import datetime
+    day = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
+    f.write(f".factory/runs/{day}T030000-implement-issue.json", '{"nodes": [{"cost_')
+    f.clear_signals()
+    rc, out = f.tick(env={"FACTORY_MAX_DAILY_USD": "50"})
+    hasnt(out, "DISPATCH ", "work was dispatched with an unreadable record dated today")
+    has(out, "DAILY_RECORD_UNREADABLE", "the refusal did not name the unreadable record")
+    has(f.notifications(), "unmeasurable", "the refusal notified nobody")
 
 
 @test("autonomy 2 means a human still merges: a passed PR must be HELD, not merged")
@@ -1149,7 +1311,7 @@ def install_harness(f: Factory, e2e: str = E2E_TRIVIAL, unit_tests: int = 9,
     dest = f.root / "harness"
     for name in ("ci.py", "appproc.py", "harness.config.json"):
         shutil.copy(HARNESS_SRC / name, dest / name)
-    (dest / "e2e.py").write_text(e2e, encoding="utf-8", newline="\n")
+    write_lf((dest / "e2e.py"), e2e)
 
     import json
     cfg = json.loads((HARNESS_SRC / "harness.config.json").read_text(encoding="utf-8"))
@@ -1159,14 +1321,13 @@ def install_harness(f: Factory, e2e: str = E2E_TRIVIAL, unit_tests: int = 9,
     cfg["unit"] = "python harness/_unit.py"
     cfg["unit_count_pattern"] = r"Ran (\d+) test"
     cfg.update(config)
-    (dest / "harness.config.json").write_text(json.dumps(cfg, indent=2),
-                                              encoding="utf-8", newline="\n")
+    write_lf((dest / "harness.config.json"), json.dumps(cfg, indent=2))
     # Tiny real scripts rather than `python -c "..."`: a one-liner has to survive JSON
     # escaping, shlex.split and the shell, and every layer of that is a way for a test to
     # fail for a reason that has nothing to do with what it is testing.
-    (dest / "_static.py").write_text("pass\n", encoding="utf-8", newline="\n")
-    (dest / "_unit.py").write_text(
-        f"print('Ran {unit_tests} tests')\n", encoding="utf-8", newline="\n")
+    write_lf((dest / "_static.py"), "pass\n")
+    write_lf((dest / "_unit.py"), 
+        f"print('Ran {unit_tests} tests')\n")
 
 
 def ci(f: Factory, *args, env=None, timeout=120):
@@ -1204,6 +1365,7 @@ def test_harness_refuses_a_zero_test_suite(f: Factory):
 @test("an unconfigured rung must be skipped LOUDLY -- a silent skip is indistinguishable "
       "from a pass, which is the whole failure this harness exists to prevent")
 def test_harness_skips_loudly(f: Factory):
+    """An unconfigured harness rung reports that it skipped instead of passing silently."""
     install_harness(f, static="")
     rc, out = ci(f)
     has(out, "STATIC_SKIPPED", "an unconfigured rung passed in silence")
@@ -1212,9 +1374,9 @@ def test_harness_skips_loudly(f: Factory):
 @test("a failing rung must be NAMED: the last line of output is usually several rungs "
       "downstream of the cause, and misnaming your own failure is most of the cost")
 def test_harness_names_the_failing_rung(f: Factory):
+    """A failing harness rung fails the gate, and the gate names which rung it was."""
     install_harness(f, static="python harness/_boom.py")
-    (f.root / "harness" / "_boom.py").write_text("raise SystemExit(1)\n",
-                                                 encoding="utf-8", newline="\n")
+    write_lf((f.root / "harness" / "_boom.py"), "raise SystemExit(1)\n")
     rc, out = ci(f)
     ok(rc != 0, "a failing rung did not fail the gate")
     has(out, "GATE_FAILED: static", "the gate did not name which rung stopped it")
@@ -1348,11 +1510,19 @@ class Mutation:
     """
 
     def __init__(self, ident, path, find, replace, why, expect, scope="factory"):
+        """One defect: the text to find in path, its replacement, and the test expected to catch it."""
         self.id, self.path, self.find, self.replace = ident, path, find, replace
         self.why, self.expect, self.scope = why, expect, scope
 
 
 MUTATIONS = [
+    Mutation(
+        "daily-cap-inert", "factory/orchestrator.sh",
+        'if [ "$DAILY_CAP" != "0" ]; then',
+        'if [ "$DAILY_CAP" = "never" ]; then',
+        "the aggregate spend guard switched off: every lap under its own cap, the day "
+        "unbounded, and the first report of it is the invoice",
+        "test_daily_cap_halts_dispatch_and_notifies_once"),
     Mutation(
         "failed-cannot-reopen", "factory/state.py",
         '"failed": {"open", "rejected", "needs-human"},',
@@ -1380,6 +1550,27 @@ MUTATIONS = [
         "an issue with no title: line killed the runner before the issue moved to "
         "in-progress, so it was re-dispatched every tick forever",
         "test_untitled_issue_does_not_kill_the_runner"),
+    Mutation(
+        "unreadable-record-is-free", "factory/cost.py",
+        "            unreadable.append(os.path.basename(path))\n",
+        "",
+        "a truncated run record dated today read as zero spend, and the cap let the "
+        "dispatcher run on",
+        "test_daily_cap_fails_closed_on_an_unreadable_record"),
+    Mutation(
+        "validation-skips-secret-check", "factory/run-workflow.sh",
+        '# build lap, before either one starts.\n    assert_no_reachable_secrets "$WT"',
+        '# build lap, before either one starts.',
+        "validate-pr ran the branch's code and the judge with a readable secret in the "
+        "root checkout",
+        "test_secret_in_root_checkout_blocks_validation"),
+    Mutation(
+        "root-secrets-unchecked", "factory/run-workflow.sh",
+        '[ -e "$ROOT/$_sf" ] && escalate',
+        'false && escalate',
+        "an ignored secret in the root checkout is one absolute-path read away from code a "
+        "build node wrote, and the lap ran anyway",
+        "test_secret_in_root_checkout_blocks_build_nodes"),
     Mutation(
         "no-err-trap", "factory/run-workflow.sh",
         "trap 'on_unguarded_error \"$?\" \"$LINENO\" \"$BASH_COMMAND\"' ERR",
@@ -1472,6 +1663,7 @@ MUTATIONS = [
 
 
 def run_mutations(tmp: Path, only: str | None) -> int:
+    """Restore each historical defect in turn; return the number the suite failed to catch."""
     print()
     print("=" * 78)
     print("MUTATION CHECK -- restore each historical defect, the suite must go RED")
@@ -1507,7 +1699,7 @@ def run_mutations(tmp: Path, only: str | None) -> int:
             HARNESS_SRC = clean_harness
             shutil.rmtree(mutant, ignore_errors=True)
             continue
-        target.write_text(s.replace(m.find, m.replace, 1), encoding="utf-8", newline="\n")
+        write_lf(target, s.replace(m.find, m.replace, 1))
 
         if m.scope == "harness":
             HARNESS_SRC = hmut
@@ -1545,6 +1737,7 @@ def run_mutations(tmp: Path, only: str | None) -> int:
 
 
 def main() -> int:
+    """Run the runner test suite (optionally filtered, or in mutation mode) and return the exit code."""
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--only", help="substring filter on the test name or the defect")
@@ -1574,6 +1767,18 @@ def main() -> int:
     if not FACTORY_SRC and not (RUNNER_SRC / "factory" / "run-workflow.sh").exists():
         print(f"cannot find the runner template at {RUNNER_SRC}", file=sys.stderr)
         return 2
+
+    missing = _missing_prerequisites()
+    if missing:
+        print("SKIP: this suite drives the real shell scripts and cannot run here. Missing: "
+              + ", ".join(missing))
+        print("      Nothing was tested. Install the missing tool and re-run.")
+        return 0
+    shim = _shim_python_on_path()
+    if shim:
+        print(f"note: no `python` on PATH; shimmed to {sys.executable} via {shim} for the "
+              f"duration of this run. A real factory needs `python` to resolve too - see "
+              f"the python fallback in factory/config.sh.")
 
     root = Path(tempfile.mkdtemp(prefix="factory-suite-"))
     global PRISTINE, TMP_FOR_SUBCASES

@@ -7,17 +7,21 @@ specifics from the repo (see *Detecting the specifics*), never assume a stack.
 
 ## What a fresh worktree needs
 
-1. **A branch off the right base.** Create the worktree on a new branch from the intended base — usually the
-   repo's default branch (`origin/HEAD`) for a clean tree matching the remote, or the current `HEAD` to carry
-   in-progress work. Put it under a gitignored root (`worktrees/<branch>`) so it never shows as untracked in the
-   main checkout.
+1. **A branch off the right base.** Default to the repo's default branch (`origin/HEAD`, detected — never a
+   hardcoded `main`) for a clean tree matching the remote; use the current `HEAD` only when the user wants to
+   carry in-progress work. Pass the base explicitly — `git worktree add worktrees/<branch> -b <branch> <base>` —
+   because without it git branches from wherever `HEAD` happens to be. If the branch already exists, check it out
+   instead of creating it (`git worktree add worktrees/<branch> <branch>`; `-b` fails on an existing branch).
+   Put the worktree under a gitignored root (`worktrees/<branch>`) so it never shows as untracked in the main
+   checkout.
 
 2. **Gitignored config & secrets — the commonly-missed layer.** A fresh checkout has NONE of the untracked files
    the app reads at runtime: `.env`, `.env.local`, `.env.<stage>`, credential/service-account JSON, `*.pem` and
    other keys, `.npmrc` / `.pypirc`, local settings (`.claude/settings.local.json`), and anything similar. Copy
    these from the main working tree into the worktree. Confirm each is actually ignored (`git check-ignore <f>`)
    so tracked files are never duplicated. If the repo ships a `.worktreeinclude`, use that list as the source of
-   truth for what to copy.
+   truth for what to copy. **These files hold secrets: copy them, never print or quote their contents** — in
+   logs, health-check output, or the report. Refer to them by name only.
 
 3. **Dependencies.** Install with the project's own package manager, detected from the manifests/lockfiles
    present. A monorepo needs an install per package (e.g. a backend and a frontend). Install *into* the worktree
@@ -46,6 +50,8 @@ specifics from the repo (see *Detecting the specifics*), never assume a stack.
 
 ## Detecting the specifics (per repo, not assumed)
 
+- **Base branch** — `git symbolic-ref refs/remotes/origin/HEAD` (strip `refs/remotes/origin/`); if the ref is not
+  set, the `HEAD branch:` line of `git remote show origin`; no remote at all → the current branch.
 - **Install command** — from the lockfile/manifest present: `uv.lock`/`pyproject.toml` → `uv sync`; `poetry.lock`
   → `poetry install`; `requirements.txt` → `pip install -r requirements.txt`; `package-lock.json` → `npm ci`;
   `pnpm-lock.yaml` → `pnpm install`; `yarn.lock` → `yarn`; `bun.lockb` → `bun install`; `Cargo.toml` →
@@ -62,5 +68,10 @@ specifics from the repo (see *Detecting the specifics*), never assume a stack.
   manifest's test/lint scripts and reuse those exact commands (test runner, type checker, linter). CI is the
   project's own source of truth for "what proves this code works" — don't invent `pytest`/`mypy` if the repo uses
   something else.
+- **Shell** — the `git` and package-manager invocations themselves run the same from bash, zsh, Git Bash, or
+  PowerShell. The *filtering* above (`| grep`, globs like `.env*`) does not: standard PowerShell has no `grep`.
+  There, use `Select-String` (`git ls-files --others --ignored --exclude-standard | Select-String '\.env|\.local$'`)
+  or run the git command alone and filter its output yourself. Don't add shell-specific syntax (`[[ ]]`, `&&`
+  chains, backticks) beyond that.
 
 > **Detect, don't hardcode** — everything above is discovered from the target repo at runtime.

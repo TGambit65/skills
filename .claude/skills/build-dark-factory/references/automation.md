@@ -44,10 +44,15 @@ into the prompt instead - so a stale flag becomes invisible prompt injection.
 > workflow:
 >
 > ```bash
-> for f in --allowedTools --disallowedTools --permission-mode --max-budget-usd; do
+> for f in --allowedTools --disallowedTools --permission-mode --add-dir --max-budget-usd --output-format; do
 >   claude --help | grep -q -- "$f" && echo "OK $f" || echo "MISSING $f"
 > done
 > ```
+>
+> Run it against the version that will be on the factory machine, not your laptop. The
+> runner's flags were checked against the published CLI reference, not an installed
+> binary; `--max-budget-usd` enforcement needs v2.1.217 or later, and the docs say spend
+> can pass the cap between checks, so leave headroom.
 >
 > And prefer a **dollar** ceiling to a turn ceiling regardless. Turns are a proxy for cost
 > and a bad one; `--max-budget-usd` is the thing you actually care about, and it genuinely

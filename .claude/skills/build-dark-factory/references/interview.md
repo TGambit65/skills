@@ -98,7 +98,7 @@ The terms that need it, and how to say each in one breath:
 | **the independence line** | The line between checks the AI can see and checks it cannot. Everything below it is inside its optimisation loop; given enough tries it satisfies those rather than the thing you meant. |
 | **the ratchet** | A floor on how many checks must run, kept in a file the AI is not allowed to edit. It stops quality being quietly traded away one deleted assertion at a time. |
 | **a structural gate** | A merge decision made by code, not by a model summarising its own work. Two of them must be code, or "it looks fine to me" is the whole gate. |
-| **the autonomy dial** | How much runs without you, 0 to 5. Level 3 is the one that matters: code merges without a human reading it. |
+| **the autonomy dial** | How much runs without you, 0 to 5. At 2 it checks the work and you press merge; at 3 code merges without a human reading it. 2 is the default, 3 is the goal. |
 | **E2E / the happy path** | One journey through your software the way a real user takes it, asserted end to end. Not a test per function - the single most valuable thing someone does. |
 | **`APP_STARTED` / proof it is running** | One specific thing your software says when it is genuinely up - a page that returns a known word, a command that prints a version. Without it, software that crashed on startup and software that is fine look identical to the checks, and "could not test it" gets counted as "nothing wrong". |
 
@@ -187,9 +187,12 @@ Then take the shipped prompts as the starting point and say so.
 
 ### R1.3 - "Are you willing to let code reach your users without anyone reading it first?"
 
-Ask exactly that, then show the dial. **Level 3 is the recommendation - say so.** People
-often say 5; 5 means the factory writes its own work from the mission, which is a different
-decision entirely.
+Ask exactly that, then show the dial. **Recommend level 2 and build for 3 - say both.**
+Level 2 is the validator posting a verdict and a human pressing merge; everything expensive
+in the build exists to earn 3, and 3 is where it should end up. But 3 is the first level
+where code reaches users unread, so it is an opt-in the user states in their own words, not
+the option they get by accepting the default. People often say 5; 5 means the factory writes
+its own work from the mission, which is a different decision entirely.
 
 Expect a pause. That pause is the entire build in one question, and everything in Round 2
 exists to make the answer yes.
@@ -198,14 +201,16 @@ Then the follow-up that calibrates everything after it: **"if a bad change did g
 what is the worst that happens?"** A side project, an internal tool, or real users and real
 money. That decides how much of the checking has to be code rather than instructions.
 
-A considered no is fine - level 2 is legitimate. Write into `FACTORY.md` what would have to
-be true to go further, so it stays a decision rather than a dial nobody touched again.
+A considered yes to 3 is the goal; a considered stop at 2 is legitimate. Either way, write
+into `FACTORY.md` what would have to be true to go further, so it stays a decision rather
+than a dial nobody touched again.
 
 ---
 
 ## Round 2 - what only they can answer
 
-**Seven questions, and every one is about something that has already happened to them.**
+**Eight questions (R2.1, R2.2, R2.3, R2.3b, R2.4, R2.5a, R2.5b, R2.7), and every one is about something
+that has already happened to them.**
 
 That is the rule this round is built on, and it is a correction. An earlier version asked
 people to *design* things: name three properties that hold when features combine, list six
@@ -281,7 +286,7 @@ are things that cannot be changed by anything you *do* add.
 
 ### R2.3 - "After you make a change, what do you actually do to check you did not break anything?"
 
-Whatever they say is the specification, including *"I click around for a couple of minutes"*
+Whatever they say is the specification, including *"I click around for a bit"*
 - **especially** that. Get the clicking narrated, step by step, because that is the check
 that has to be automated.
 

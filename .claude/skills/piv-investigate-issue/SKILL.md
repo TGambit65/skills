@@ -1,6 +1,6 @@
 ---
 name: piv-investigate-issue
-description: Investigate a GitHub issue — fan out parallel exploration, find the root cause (5 Whys, evidence-backed), and write a reviewable RCA artifact (then post a summary to the issue). The investigate step before piv-implement-issue. Use to diagnose a bug/issue before fixing it.
+description: Investigates a GitHub issue into an evidence-backed RCA (reproduce, parallel exploration, 5 Whys) under docs/issues/, before piv-implement-issue. Use to investigate, diagnose or find the root cause of a bug before fixing it.
 argument-hint: [github-issue-id]
 ---
 
@@ -8,51 +8,68 @@ argument-hint: [github-issue-id]
 
 ## Objective
 
-Investigate GitHub issue #$ARGUMENTS from this repository, identify the root cause, and document findings for future implementation.
+Investigate GitHub issue #$ARGUMENTS from this repository, identify the root cause, and document findings for future implementation. This skill changes no source code and switches no branches — investigate the checkout you are on and record which commit that was.
 
 **Prerequisites:**
 - Working in a local Git repository with GitHub origin
 - GitHub CLI installed and authenticated (`gh auth status`)
-- Valid GitHub issue ID from this repository
+- Valid GitHub issue ID from this repository (given a URL, use its trailing number as the id throughout)
 
 ## Investigation Process
 
 ### 1. Fetch GitHub Issue Details
 
-**Use GitHub CLI to retrieve issue information:**
+**Use GitHub CLI to retrieve the issue, including its discussion:**
 
 ```bash
-gh issue view $ARGUMENTS
+gh issue view $ARGUMENTS --comments
 ```
 
-This fetches:
-- Issue title and description
-- Reporter and creation date
-- Labels and status
-- Comments and discussion
+This fetches title, description, reporter, date, labels, status — and, only with `--comments`, the comments, which often hold the real reproduction steps.
 
 ### 2. Explore the Codebase — fan out in parallel
 
-Dispatch specialized agents **in parallel** (one message, multiple Task calls) so exploration is fast and the noisy
+Dispatch two explorers **in parallel** (one message, multiple Task calls) so exploration is fast and the noisy
 search stays out of your main context:
-- **`codebase-analyst`** — trace HOW the affected code works end-to-end: integration points, data flow,
+- **Analyst** — trace HOW the affected code works end-to-end: integration points, data flow,
   state/side effects, error handling. Return precise `file:line` references, no suggestions.
-- **`research-agent`** (a second explorer) — find WHERE the relevant code lives + patterns to mirror: the error
+- **Researcher** — find WHERE the relevant code lives + patterns to mirror: the error
   strings from the issue, related functions/modules, similar implementations, existing test patterns.
+
+These skills ship no subagents. If the project defines `.claude/agents/codebase-analyst.md` /
+`research-agent.md`, dispatch them with the briefs above; otherwise dispatch two built-in general-purpose subagents
+with the same briefs; with no subagent mechanism at all, run both briefs yourself, in sequence, with the same
+`file:line` discipline.
 
 Merge their findings into a short map (`file:line` + why each matters) before forming the root cause. *(This is
 the parallel-subagent fan-out, applied to diagnosis.)*
 
 ### 3. Review Recent History — when was it introduced?
 
-Check recent changes to the affected areas, and pin down when the bug entered:
-!`git log --oneline -20 -- [relevant-paths]`
+With the relevant paths now known, check recent changes to them and pin down when the bug entered:
 ```bash
+git log --oneline -20 -- <relevant-paths>
 git blame -L <start>,<end> <affected-file>   # who/when introduced the suspect lines
 ```
 Decide: a recent **regression** vs a **long-standing** bug vs **original** behavior — it changes both the fix and the risk.
 
-### 4. Investigate Root Cause — the 5 Whys, with evidence
+### 4. Reproduce First
+
+Don't explain a bug you haven't seen. From the issue's steps and the Step 2 map, reproduce it the cheapest reliable
+way — the closest existing test, a throwaway script or failing test, or exercising the code path directly — against
+local/test state only, nothing destructive. Record the **exact command(s) and output**, plus
+`git rev-parse --short HEAD` and `git branch --show-current` (two separate values).
+
+**Redact before you write anything down.** The RCA is committed with the fix, so a reproduction that prints a
+token, cookie, password, connection string, API key or personal data must not reach it verbatim: replace each
+value with `[REDACTED:<kind>]` (keep the key or field name, drop the value), and note in the RCA that the output
+was sanitized. Never paste the contents of an env or secret file, even redacted.
+
+Outcome is one of **Reproduced** (output shows the symptom) · **Not reproduced** (what you tried, what happened) ·
+**Not attempted** (why: credentials, hardware, dataset…). Only **Reproduced** supports **Confidence: High**; a
+reporter's screenshot or log is evidence, not verification.
+
+### 5. Investigate Root Cause — the 5 Whys, with evidence
 
 Don't stop at the symptom. Chain **why → because** until you reach the specific, fixable code, and back **every link
 with `file:line` evidence**:
@@ -64,7 +81,7 @@ WHY <cause A>?             → because <cause B>   (evidence: file.ts:456 — <s
 Watch for: input-validation gaps, unhandled edge cases, race/timing issues, wrong assumptions, missing error
 handling, integration mismatches.
 
-### 5. Assess Impact
+### 6. Assess Impact
 
 **Determine:**
 - How widespread is this issue?
@@ -73,19 +90,21 @@ handling, integration mismatches.
 - What is the severity?
 - Could this cause data corruption or security issues?
 
-### 6. Propose Fix Approach
+### 7. Propose Fix Approach
 
 **Design the solution:**
 - What needs to be changed?
 - Which files will be modified?
 - What is the fix strategy?
 - Are there alternative approaches?
-- What testing is needed?
+- What testing is needed? Give the validation commands this project actually uses (`package.json` scripts,
+  `pyproject.toml`, `Makefile`, CI config) — the implementer runs them verbatim.
 - Are there any risks or side effects?
 
 ## Output: Create RCA Document
 
-Save analysis as: `docs/issues/issue-$ARGUMENTS.md`
+Save analysis as: `docs/issues/issue-$ARGUMENTS.md` (create the directory if needed). Leave it uncommitted:
+`piv-implement-issue` carries it onto the fix branch and `piv-commit` commits it with the fix.
 
 ### Required RCA Document Structure
 
@@ -99,6 +118,8 @@ Save analysis as: `docs/issues/issue-$ARGUMENTS.md`
 - **Title**: [Issue title from GitHub]
 - **Reporter**: [GitHub username]
 - **Status**: [Current GitHub issue status]
+- **Investigated at commit**: [short SHA only, from Step 4 — `piv-implement-issue` uses it as a git revision]
+- **Investigated on branch**: [branch name, from Step 4]
 
 ## Assessment
 
@@ -106,11 +127,11 @@ Each value needs a one-line reason grounded in the investigation (not a guess):
 
 | Metric | Value | Reasoning |
 |--------|-------|-----------|
-| Severity | Critical/High/Medium/Low | user impact · workaround · scope of failure |
+| Severity | Critical/High/Medium/Low | Critical = security exposure, data loss or crash · High = core flow broken, no workaround · Medium = degraded, workaround exists · Low = cosmetic / minor |
 | Complexity | Low/Medium/High | files touched · integration points · risk |
-| Confidence | High/Medium/Low | evidence quality · unknowns · assumptions |
+| Confidence | High/Medium/Low | evidence quality · unknowns · assumptions · reproduced? |
 
-> **Confidence is the human-attention signal:** LOW confidence = a human should look before the fix runs. Say it honestly.
+> **Confidence is the human-attention signal:** LOW confidence = a human should look before the fix runs. Say it honestly. HIGH requires a reproduction you performed.
 
 ## Problem Description
 
@@ -132,7 +153,15 @@ Each value needs a one-line reason grounded in the investigation (not a guess):
 2. [Step 2]
 3. [Observe issue]
 
-**Reproduction Verified:** [Yes/No]
+**Reproduction Verified:** [Reproduced / Not reproduced / Not attempted — with reason]
+
+**Reproduction Command and Output:**
+```
+[exact command(s) from Step 4]
+[trimmed output showing the symptom — or what happened instead — with secrets and personal data redacted]
+```
+
+**Output sanitized:** [yes — what kinds were redacted / no — nothing sensitive in the output]
 
 ## Root Cause
 
@@ -158,7 +187,7 @@ WHY <symptom> → because <cause>          (evidence: file:line — snippet)
 **Code Location:**
 ```
 [File path:line number]
-[Relevant code snippet showing the issue]
+[Relevant code snippet showing the issue — the implementer diffs against this to detect drift]
 ```
 
 ### Related Issues
@@ -208,13 +237,13 @@ WHY <symptom> → because <cause>          (evidence: file:line — snippet)
 ### Testing Requirements
 
 **Test Cases Needed:**
-1. [Test case 1 - verify fix works]
+1. [Test case 1 - verify fix works; must fail on the current code]
 2. [Test case 2 - verify no regression]
 3. [Test case 3 - edge cases]
 
 **Validation Commands:**
 ```bash
-[Exact commands to verify fix]
+[Exact lint / type-check / test commands this project uses, with the working directory if it matters]
 ```
 
 ## Implementation Plan
@@ -226,7 +255,10 @@ This RCA document should be used by the `piv-implement-issue` skill.
 ## Next Steps
 
 1. Review this RCA document
-2. Run the `piv-implement-issue` skill with issue #$ARGUMENTS to implement the fix
+2. If **Reproduction Verified** is `Reproduced`, run the `piv-implement-issue` skill with issue #$ARGUMENTS to
+   implement the fix. If it is `Not reproduced` or `Not attempted`, this RCA is diagnostic only:
+   `piv-implement-issue` requires a reproduction it can see failing, so re-run this investigation once the
+   reproduction conditions are available
 3. Run the `piv-commit` skill after implementation complete
 ```
 
@@ -235,12 +267,15 @@ This RCA document should be used by the `piv-implement-issue` skill.
 After writing the doc, post a short version as a GitHub comment — an audit trail, and so the fix can be
 triggered/tracked from the issue itself:
 ```bash
-gh issue comment $ARGUMENTS --body "<title · the Assessment table (severity/complexity/confidence + one-line reasons) · root cause in 1–2 lines · files to change · next: /piv-implement-issue $ARGUMENTS>"
+gh issue comment $ARGUMENTS --body "<title · the Assessment table (severity/complexity/confidence + one-line reasons) · root cause in 1–2 lines · reproduction status · files to change · next: /piv-implement-issue $ARGUMENTS>"
 ```
+Ask first if the repo is public and the RCA describes a security weakness, or if the user asked for a local-only
+investigation. If `gh` is not authenticated, skip and say so.
 
 ## Edge cases
 
 - **Already closed** → report it; still write the RCA if analysis is wanted.
 - **Already has a linked PR** → warn; confirm before continuing.
 - **Can't pin the root cause** → set **Confidence: LOW**, document the best hypothesis + what's uncertain, and flag it for a human before any fix.
+- **Can't reproduce** → still write the RCA with Reproduction Verified = Not reproduced, Confidence at most Medium, and what a reproduction would need.
 - **Scope too large** → suggest splitting into smaller issues; focus this RCA on the core problem and list the rest as out-of-scope.

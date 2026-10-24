@@ -1,49 +1,46 @@
 ---
 name: piv-review-changes
-description: Performs a technical code review of recently changed files for bugs, security issues, and standards compliance, then writes a report. Use before committing, as a pre-commit quality gate.
+description: Code review of uncommitted changes (or a git range) for bugs, security issues, and standards; writes a report. Use before committing, as the pre-commit gate.
+argument-hint: "[git-range] (default: uncommitted changes vs HEAD)"
 ---
 
 # Code Review
 
-Perform technical code review on recently changed files.
+Perform a technical code review of what changed. This skill **reports; it does not fix** — fixing is
+`piv-fix-review-findings`.
 
 ## Core Principles
 
-Review Philosophy:
-
-- Simplicity is the ultimate sophistication - every line should justify its existence
-- Code is read far more often than it's written - optimize for readability
-- The best code is often the code you don't write
-- Elegance emerges from clarity of intent and economy of expression
+Simplicity is the ultimate sophistication — every line should justify its existence. Code is read far more often
+than it's written, and the best code is often the code you don't write. Review for clarity of intent and economy
+of expression, but **report only what is actually wrong** (see Severity and Important below).
 
 ## What to Review
 
-Start by gathering codebase context to understand the codebase standards and patterns.
+**Scope.** Default is the **uncommitted work**: staged + unstaged changes vs `HEAD`, plus untracked files. If
+`$ARGUMENTS` names a git range or commit (e.g. `main..HEAD`, `HEAD~3`, `abc123`), review that instead.
 
-Start by examining:
+Start by gathering codebase context to understand the codebase standards and patterns. Examine:
 
 - CLAUDE.md
 - README.md
 - Key files in the core module
 - Documented standards in the docs directory (and any `.claude/references/` docs)
 
-After you have a good understanding, run these commands:
+After you have a good understanding, run:
 
 ```bash
+# default (uncommitted)
 git status
 git diff HEAD
 git diff --stat HEAD
-```
-
-Then check the list of new files:
-
-```bash
-git ls-files --others --exclude-standard
+git ls-files --others --exclude-standard      # new, untracked files
+# range mode: replace `HEAD` above with the given range; untracked files don't apply
 ```
 
 Read each new file in its entirety. Read each changed file in its entirety (not just the diff) to understand full context.
 
-For each changed file or new file, analyze for:
+For each changed or new file, analyze for:
 
 1. **Logic Errors**
    - Off-by-one errors
@@ -63,11 +60,11 @@ For each changed file or new file, analyze for:
    - Memory leaks
    - Unnecessary computations
 
-4. **Code Quality**
+4. **Code Quality** (report when it hides a bug or violates a documented project standard; otherwise Low or omit)
    - Violations of DRY principle
    - Overly complex functions
    - Poor naming
-   - Missing type hints/annotations
+   - Missing or wrong types where the project enforces them (a type-checker failure, not a style preference)
 
 5. **Adherence to Codebase Standards and Existing Patterns**
    - Adherence to standards documented in the docs directory
@@ -78,37 +75,60 @@ For each changed file or new file, analyze for:
 ## Verify Issues Are Real
 
 - Run specific tests for issues found
-- Confirm type errors are legitimate
+- Confirm type errors are legitimate (run the project's type-checker if it has one)
 - Validate security concerns with context
+- **Report only high-confidence issues.** Anything you could not confirm goes in the report marked
+  `verification: Unverified` and does not count toward the verdict — **except security**: a security concern you
+  could neither confirm nor rule out is not parked as Unverified; it is reported as a Critical finding and blocks
+  (see Severity). `piv-review-pr` applies the same rule.
+
+## Severity
+
+Same table `piv-review-pr` uses, so findings carry the same meaning in both reviews:
+
+| Severity | Meaning |
+|----------|---------|
+| **Critical** | Blocking — security flaw (exploitable or unverified), data loss, crashes |
+| **High** | Should fix before merge — type-safety holes, missing error handling, logic errors |
+| **Medium** | Pattern inconsistencies, missing edge cases, hardening gaps, *undocumented* deviations from the plan |
+| **Low** | Suggestions, minor polish |
+
+Security findings: exploitable **or unverified** → Critical (when in doubt, Critical); only a *verified* hardening gap with no exploit path → Medium/Low, and say why.
 
 ## Output Format
 
-Save a new file to `.claude/code-reviews/[appropriate-name].md`
+Save a new file to `.claude/code-reviews/<slug>-<YYYY-MM-DD>.md` (create the folder if needed), where `<slug>` is
+the branch or topic with every `/`, `\` and other non-`[A-Za-z0-9._-]` character replaced by `-`
+(`feature/piv/review` → `feature-piv-review`), so the file sits directly in `.claude/code-reviews/`.
+This file is what `piv-fix-review-findings` reads next.
 
-**Stats:**
+**Stats** (from `git diff --shortstat` and the untracked list — fill in the real numbers):
 
-- Files Modified: 0
-- Files Added: 0
-- Files Deleted: 0
-- New lines: 0
-- Deleted lines: 0
+- Files Modified: {n}
+- Files Added: {n}
+- Files Deleted: {n}
+- New lines: {n}
+- Deleted lines: {n}
 
 **For each issue found:**
 
 ```
 severity: critical|high|medium|low
-file: path/to/file.py
-line: 42
+file: path/to/file.ext
+line: {n}
 issue: [one-line description]
 detail: [explanation of why this is a problem]
 suggestion: [how to fix it]
+verification: [how you confirmed it — test run / traced / reproduced — or Unverified]
 ```
 
-If no issues found: "Code review passed. No technical issues detected."
+**Verdict:** `PASS` (no Critical/High), `FAIL` (any Critical/High), and `NOT RUN` for any check you did not
+perform (e.g. the type-checker wasn't available). If no issues found: "Verdict: PASS. No technical issues detected."
 
 ## Important
 
 - Be specific (line numbers, not vague complaints)
-- Focus on real bugs, not style
+- Focus on real bugs and documented-standard violations, not personal style
 - Suggest fixes, don't just complain
-- Flag security issues as CRITICAL
+- Don't fix anything here — hand the report to `piv-fix-review-findings`
+- Advisory extra: run `rules-check-drift` alongside this review when CLAUDE.md may have drifted.
