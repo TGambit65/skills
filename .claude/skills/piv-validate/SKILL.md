@@ -27,8 +27,9 @@ This is the one skill that cannot be generic: it wraps your stack's CLIs. Take t
    route that works for every install, including the plugin, whose copy of this file is read-only.
 2. **The command blocks below, once edited.** A copy installed as files can paste its commands into
    steps 1–5 instead. A block still holding its `REPLACE` placeholder is not a source.
-3. **`CLAUDE.md` or `AGENTS.md`**, only for a command it states verbatim as the project's test,
-   type-check or lint command. Never infer one from a manifest, a CI file or the README.
+3. **`CLAUDE.md`, then `AGENTS.md`**, only for a command it states verbatim as the project's test,
+   type-check or lint command. Never infer one from a manifest, a CI file or the README. When both state
+   a command for the same check and they differ, use `CLAUDE.md`'s and note the conflict in the report.
 
 No source → do not guess a command. Report every check as `NOT RUN — piv-validate not configured`,
 and say in the verdict how to configure it (source 1 above).
