@@ -1,5 +1,6 @@
 # Runs tools/test_all.py: the contract checker, the hooks corpus and every bundled test suite.
-# The suites need only Python, bash and git, all of which the runner already has.
+# The suites need only Python, bash and git, all of which the runner already has. On pull requests it
+# also checks that a change to anything the plugin ships raises the plugin version.
 name: checks
 
 on:
@@ -32,3 +33,21 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python tools/test_all.py
+
+  version-bump:
+    # An installed plugin only updates when its version changes, so new skill content under an
+    # old number never reaches existing installs (how 1.5.0 went stale through PRs #3 and #4).
+    name: plugin version bump
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the base branch must be present to diff against
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - env:
+          BASE: origin/${{ github.base_ref }}
+        run: python tools/check_version_bump.py "$BASE"

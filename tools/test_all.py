@@ -2,7 +2,7 @@
 """Run every check this repo has and print one PASS/FAIL line per check.
 
     python3 tools/test_all.py            # everything
-    python3 tools/test_all.py --quick    # contracts + hooks corpus only
+    python3 tools/test_all.py --quick    # contracts, hooks corpus and version-bump tests only
 
 Exit 0 only when every check passes. Each test script runs from its own skill folder, the
 way its docstring says to run it. Zero dependencies; Python 3.8+.
@@ -19,10 +19,11 @@ ROOT = Path(__file__).resolve().parent.parent
 SK = ROOT / ".claude" / "skills"
 
 # (label, cwd, argv). Order: cheap and broad first. --quick runs only the labels in QUICK.
-QUICK = {"contracts", "hooks corpus"}
+QUICK = {"contracts", "hooks corpus", "version-bump check"}
 CHECKS = [
     ("contracts", ROOT, [sys.executable, "tools/check_contracts.py"]),
     ("hooks corpus", ROOT, [sys.executable, "hooks/_test_hooks.py"]),
+    ("version-bump check", ROOT, [sys.executable, "tools/_test_version_bump.py"]),
     ("drive-screen autodrive", SK / "drive-screen", [sys.executable, "scripts/_test_autodrive.py"]),
     ("drive-screen screenctl", SK / "drive-screen", [sys.executable, "scripts/_test_screenctl.py"]),
     ("dark-factory audit runner", SK / "build-dark-factory", [sys.executable, "scripts/_test_audit_runner.py"]),
@@ -34,7 +35,7 @@ CHECKS = [
 def main(argv: list[str]) -> int:
     """Run every check (or only the quick ones) and print one PASS/FAIL line each."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--quick", action="store_true", help="contracts + hooks corpus only")
+    ap.add_argument("--quick", action="store_true", help="contracts, hooks corpus and version-bump tests only")
     args = ap.parse_args(argv)
 
     failed = ran = skipped = 0

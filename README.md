@@ -292,7 +292,11 @@ python3 tools/check_contracts.py   # just the cross-skill contracts (paths, sect
 placeholder, or ships a report template with the result already typed in. Run it before sending a change.
 
 CI runs the same `tools/test_all.py` on Python 3.9 and 3.13 for every pull request and every push to `main`
-([`.github/workflows/checks.yml`](.github/workflows/checks.yml)).
+([`.github/workflows/checks.yml`](.github/workflows/checks.yml)). On pull requests it also runs
+`tools/check_version_bump.py`, which fails when anything the plugin ships (`.claude/skills/` or `.claude-plugin/`)
+changed but the plugin version did not go up: an installed plugin only updates when its version changes. Bump
+`version` in both `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, and run the check locally with
+`python3 tools/check_version_bump.py origin/main`.
 
 ## License
 
