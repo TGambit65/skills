@@ -238,8 +238,9 @@ HOLDOUT_DENY="Read($FACTORY_HOLDOUT_DIR/**) Glob($FACTORY_HOLDOUT_DIR/**) Grep($
 # Dropping `python -c` would not close that; the quick gate is the same door. The real
 # control is that the secret is not on the node's filesystem: build nodes work in a fresh
 # worktree, where an ignored file does not exist unless someone copies it in, and
-# assert_no_reachable_secrets() refuses to run them if one is there OR in the root
-# checkout, which every node reaches through --add-dir "$ROOT". A secret that must not
+# assert_no_reachable_secrets() refuses to run them, or to validate a branch, if one is
+# there OR in the root checkout, which every node reaches through --add-dir "$ROOT" (a
+# relative Read(.env) deny matches only the node's own cwd). A secret that must not
 # reach a code-running node does not belong in this checkout at all
 # (templates/runner/README.md, "Secret files"). Files outside the checkout that this OS
 # user can read are beyond what a runner can check; keep them off the factory host.
@@ -249,7 +250,8 @@ for _sf in $FACTORY_SECRET_FILES; do
 done
 
 assert_no_reachable_secrets() {   # assert_no_reachable_secrets <worktree>
-  # Run before any node that can execute code. An ignored file is absent from a fresh
+  # Run before any node that can execute code, and before the gate runs a branch's code
+  # (validate-pr). An ignored file is absent from a fresh
   # worktree; if one is present, something copied it there. The root checkout is the
   # other place a node reaches by path: ignored files live there, and the pre-flight's
   # check-ignore proves only that they cannot be committed, not that they cannot be read.
@@ -258,7 +260,7 @@ assert_no_reachable_secrets() {   # assert_no_reachable_secrets <worktree>
   local _sf
   for _sf in $FACTORY_SECRET_FILES; do
     [ -e "$1/$_sf" ] && escalate "PREFLIGHT: $1/$_sf exists in the build worktree; a code-running node could read it past the Read() deny. Remove it from the worktree."
-    [ -e "$ROOT/$_sf" ] && escalate "PREFLIGHT: $ROOT/$_sf exists in the factory checkout, which build nodes reach through --add-dir; a code-running node could read it past the Read() deny. Move it out of the checkout (templates/runner/README.md, \"Secret files\")."
+    [ -e "$ROOT/$_sf" ] && escalate "PREFLIGHT: $ROOT/$_sf exists in the factory checkout, which every node reaches through --add-dir; code a node runs could read it past the Read() deny. Move it out of the checkout (templates/runner/README.md, \"Secret files\")."
   done
   return 0
 }
@@ -656,6 +658,10 @@ case "$WORKFLOW" in
 
     prepare_worktree_path "$WT"
     git worktree add --detach "$WT" "$CHECKOUT" >/dev/null 2>&1 || escalate "could not check out $CHECKOUT"
+    # The gate below runs the BRANCH's code in this worktree, and the judge holds Read with
+    # --add-dir "$ROOT", where a relative Read(.env) deny does not reach. Same check as a
+    # build lap, before either one starts.
+    assert_no_reachable_secrets "$WT"
 
     # Governance from the BASE branch, before the branch under review is read. On GitHub
     # that is origin/main and not the local main -- reading the local copy would judge the

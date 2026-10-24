@@ -690,6 +690,22 @@ def test_secret_in_root_checkout_blocks_build_nodes(f: Factory):
        "the refused lap left the issue dispatchable -- it will be refused again every tick")
 
 
+@test("validate-pr runs the branch's code through the gate and hands the judge Read with "
+      "--add-dir on the root checkout, and it never checked for a secret there")
+def test_secret_in_root_checkout_blocks_validation(f: Factory):
+    """A FACTORY_SECRET_FILES entry in the root checkout must stop validate-pr before the gate or judge."""
+    f.issue("0001-widget", state="in-progress")
+    f.pr("0001-widget", state="open")
+    f.sh("git branch factory/0001-widget")
+    f.write(".env", "API_KEY=do-not-read-me\n")
+    f.clear_signals()
+    rc, out = f.run("validate-pr", ".factory/prs/0001-widget.md")
+    has(out, "exists in the factory checkout", "a secret in the root checkout did not stop validation")
+    ok("NODE judge" not in out, f"the judge ran with a readable secret in the checkout:\n{out[-1500:]}")
+    ok(f.state_of(".factory/prs/0001-widget.md") == "needs-human",
+       "the refused validation left the PR dispatchable")
+
+
 @test("an unguarded command failing under `set -e` produced exit 1 and NOTHING else: no "
       "state change, no ledger, no notification, and the orchestrator discarded the "
       "runner's exit status so nothing downstream noticed either")
@@ -1541,6 +1557,13 @@ MUTATIONS = [
         "a truncated run record dated today read as zero spend, and the cap let the "
         "dispatcher run on",
         "test_daily_cap_fails_closed_on_an_unreadable_record"),
+    Mutation(
+        "validation-skips-secret-check", "factory/run-workflow.sh",
+        '# build lap, before either one starts.\n    assert_no_reachable_secrets "$WT"',
+        '# build lap, before either one starts.',
+        "validate-pr ran the branch's code and the judge with a readable secret in the "
+        "root checkout",
+        "test_secret_in_root_checkout_blocks_validation"),
     Mutation(
         "root-secrets-unchecked", "factory/run-workflow.sh",
         '[ -e "$ROOT/$_sf" ] && escalate',
