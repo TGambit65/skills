@@ -35,7 +35,7 @@ That's it. All 36 skills, managed and read-only, and `/plugin marketplace update
 Plugin skills are namespaced, so you invoke them as `/skills:piv-implement`.
 
 The whole set costs roughly 4,000 tokens of always-on context (just the descriptions; the bodies load only when a
-skill fires): `claude plugin details skills` reports about 4,045 for v1.5.0, with a per-skill breakdown.
+skill fires): `claude plugin details skills` reports about 4,045 for v1.5.1, with a per-skill breakdown.
 `python3 tools/check_contracts.py --tokens` gives a quicker estimate from the descriptions alone. Disable the plugin
 any time with `/plugin`.
 
