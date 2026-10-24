@@ -70,12 +70,14 @@ def commit(root: Path, msg: str = "change") -> None:
 
 
 def case_skill_changed_no_bump(root: Path) -> int:
+    """A changed skill under the old version fails."""
     write(root, ".claude/skills/demo/SKILL.md", "---\nname: demo\n---\nnew body\n")
     commit(root)
     return FAIL
 
 
 def case_skill_changed_with_bump(root: Path) -> int:
+    """A changed skill with a higher version passes."""
     write(root, ".claude/skills/demo/SKILL.md", "---\nname: demo\n---\nnew body\n")
     write(root, ".claude-plugin/plugin.json", manifest("1.5.1"))
     commit(root)
@@ -83,18 +85,21 @@ def case_skill_changed_with_bump(root: Path) -> int:
 
 
 def case_new_skill_no_bump(root: Path) -> int:
+    """An added skill under the old version fails."""
     write(root, ".claude/skills/other/SKILL.md", "---\nname: other\n---\nbody\n")
     commit(root)
     return FAIL
 
 
 def case_deleted_skill_no_bump(root: Path) -> int:
+    """A removed skill under the old version fails."""
     run(root, "rm", "-q", ".claude/skills/demo/SKILL.md")
     commit(root)
     return FAIL
 
 
 def case_docs_only(root: Path) -> int:
+    """Changes outside the shipped paths need no bump."""
     write(root, "README.md", "readme, edited\n")
     write(root, "tools/x.py", "print(1)\n")
     commit(root)
@@ -102,12 +107,14 @@ def case_docs_only(root: Path) -> int:
 
 
 def case_manifest_metadata_no_bump(root: Path) -> int:
+    """A manifest edit other than the version still needs a bump."""
     write(root, ".claude-plugin/plugin.json", manifest("1.5.0", description="new words"))
     commit(root)
     return FAIL
 
 
 def case_version_lowered(root: Path) -> int:
+    """A lower version fails."""
     write(root, ".claude/skills/demo/SKILL.md", "changed\n")
     write(root, ".claude-plugin/plugin.json", manifest("1.4.9"))
     commit(root)
@@ -115,6 +122,7 @@ def case_version_lowered(root: Path) -> int:
 
 
 def case_numeric_not_lexical(root: Path) -> int:
+    """Versions compare as numbers, so 1.9.0 -> 1.10.0 passes."""
     # 1.10.0 > 1.9.0 numerically, though "1.10.0" < "1.9.0" as strings.
     write(root, ".claude-plugin/plugin.json", manifest("1.9.0"))
     commit(root, "to 1.9.0")
@@ -126,6 +134,7 @@ def case_numeric_not_lexical(root: Path) -> int:
 
 
 def case_non_numeric_version(root: Path) -> int:
+    """A version that is not plain dotted numbers fails."""
     write(root, ".claude/skills/demo/SKILL.md", "changed\n")
     write(root, ".claude-plugin/plugin.json", manifest("1.6.0-beta"))
     commit(root)
@@ -133,6 +142,7 @@ def case_non_numeric_version(root: Path) -> int:
 
 
 def case_uncommitted_bump_counts(root: Path) -> int:
+    """The version is read from the working tree, so an uncommitted bump counts."""
     # The version is read from the working tree, so a local run sees a bump you have not committed yet.
     write(root, ".claude/skills/demo/SKILL.md", "changed\n")
     commit(root)
@@ -141,6 +151,7 @@ def case_uncommitted_bump_counts(root: Path) -> int:
 
 
 def case_run_from_subdirectory(root: Path) -> int:
+    """The check finds the manifest when run from a subdirectory."""
     write(root, ".claude/skills/demo/SKILL.md", "changed\n")
     write(root, ".claude-plugin/plugin.json", manifest("1.5.1"))
     commit(root)
@@ -148,6 +159,7 @@ def case_run_from_subdirectory(root: Path) -> int:
 
 
 def case_skill_moved_out(root: Path) -> int:
+    """Moving a skill out of .claude/skills/ counts as a shipped change."""
     # A rename shows only its new path unless renames are off, so a move out of .claude/skills/
     # would read as "nothing shipped changed".
     (root / "attic").mkdir()
@@ -156,11 +168,20 @@ def case_skill_moved_out(root: Path) -> int:
     return FAIL
 
 
+def case_non_ascii_skill_path(root: Path) -> int:
+    """A changed skill with a non-ASCII name still counts: git quotes such paths unless -z."""
+    write(root, ".claude/skills/café/SKILL.md", "---\nname: cafe\n---\nbody\n")
+    commit(root)
+    return FAIL
+
+
 def case_unknown_base(root: Path) -> "tuple[int, tuple[str, ...]]":
+    """A base ref that does not exist is an error, not a pass."""
     return ERROR, ("no-such-ref",)
 
 
 def case_base_without_manifest(_root: Path) -> int:
+    """A base with no manifest is a first release."""
     return PASS
 
 
@@ -177,6 +198,7 @@ CASES = [
     ("an uncommitted bump in the working tree counts", case_uncommitted_bump_counts, {}),
     ("it works when run from a subdirectory", case_run_from_subdirectory, {"cwd": "tools"}),
     ("moving a skill out of .claude/skills/ still counts", case_skill_moved_out, {}),
+    ("a non-ASCII skill path is still seen", case_non_ascii_skill_path, {}),
     ("an unknown base ref is an error, not a pass", case_unknown_base, {}),
     ("a base with no manifest is a first release", case_base_without_manifest, {"with_manifest": False}),
 ]

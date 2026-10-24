@@ -28,7 +28,9 @@ VERSION_RE = re.compile(r"^\d+(\.\d+)*$")
 
 def git(*args: str) -> "tuple[int, str]":
     """Run git; return (exit code, stdout)."""
-    p = subprocess.run(["git", *args], capture_output=True, text=True)
+    # UTF-8 regardless of the runner's locale; surrogateescape so an odd byte cannot crash the check.
+    p = subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8",
+                       errors="surrogateescape")
     return p.returncode, p.stdout
 
 
@@ -71,12 +73,13 @@ def main(argv: "list[str]") -> int:
         print(f"ERROR  base ref {base!r} not found. In CI, check out with fetch-depth: 0.")
         return 2
     # --no-renames: a rename otherwise lists only its new path, so moving a skill out of
-    # .claude/skills/ would read as "nothing shipped changed".
-    rc, out = git("diff", "--name-only", "--no-renames", f"{base}...HEAD")
+    # .claude/skills/ would read as "nothing shipped changed". -z: without it git wraps any path
+    # with a non-ASCII byte in quotes and octal escapes, so no prefix below would match it.
+    rc, out = git("diff", "--name-only", "-z", "--no-renames", f"{base}...HEAD")
     if rc != 0:
         print(f"ERROR  could not diff {base}...HEAD")
         return 2
-    shipped = sorted(p for p in out.splitlines() if p.startswith(SHIPPED))
+    shipped = sorted(p for p in out.split("\0") if p.startswith(SHIPPED))
     if not shipped:
         print(f"PASS   nothing the plugin ships changed since {base}; no version bump needed")
         return 0
