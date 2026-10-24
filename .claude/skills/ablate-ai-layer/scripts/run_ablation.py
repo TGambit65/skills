@@ -190,7 +190,9 @@ def run_one(root: Path, sha: str, arm: str, index: int, prompt: str,
         rec["stderr_tail"] = (proc.stderr or "")[-600:]
         try:
             payload = json.loads(proc.stdout)
-            rec["agent_error"] = bool(payload.get("is_error"))
+            # A runner can print valid JSON without is_error and still exit nonzero;
+            # either signal makes the run a failure, kept out of grading.
+            rec["agent_error"] = bool(payload.get("is_error")) or proc.returncode != 0
             rec["result_text"] = str(payload.get("result", ""))[:4000]
             rec["cost_usd"] = payload.get("total_cost_usd")
             rec["num_turns"] = payload.get("num_turns")
