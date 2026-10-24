@@ -237,9 +237,9 @@ if [ "$DAILY_CAP" != "0" ]; then
     DAILY_MARK=".factory/runs/daily-cap-$(date -u +%Y%m%d).notified"
     if [ ! -e "$DAILY_MARK" ] && [ "$DRY_RUN" -eq 0 ]; then
       mkdir -p .factory/runs 2>/dev/null || true
-      echo "- $(date -u +%FT%TZ)  (orchestrator)  daily spend cap reached: $DAILY_OUT" \
+      echo "- $(date -u +%FT%TZ)  (orchestrator)  daily spend cap reached or unmeasurable: $DAILY_OUT" \
         >> .factory/needs-human.md 2>/dev/null || true
-      log "$(factory_notify "orchestrator" "daily spend cap reached; nothing dispatches until midnight UTC: $DAILY_OUT")" || true
+      log "$(factory_notify "orchestrator" "daily spend cap reached or spend unmeasurable; nothing dispatches until midnight UTC or until fixed: $DAILY_OUT")" || true
       : > "$DAILY_MARK" 2>/dev/null || true
     fi
     exit 0

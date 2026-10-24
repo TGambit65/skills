@@ -980,6 +980,20 @@ def test_daily_cap_reports_unmeasured_runs(f: Factory):
     has(out, "unmeasured=1", "an uncosted run was not reported as unmeasured")
 
 
+@test("a run record dated today that could not be parsed was skipped, so its spend read as "
+      "zero and an over-budget day could dispatch again")
+def test_daily_cap_fails_closed_on_an_unreadable_record(f: Factory):
+    """A corrupt run record dated today must stop dispatch, not be counted as free."""
+    import datetime
+    day = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
+    f.write(f".factory/runs/{day}T030000-implement-issue.json", '{"nodes": [{"cost_')
+    f.clear_signals()
+    rc, out = f.tick(env={"FACTORY_MAX_DAILY_USD": "50"})
+    hasnt(out, "DISPATCH ", "work was dispatched with an unreadable record dated today")
+    has(out, "DAILY_RECORD_UNREADABLE", "the refusal did not name the unreadable record")
+    has(f.notifications(), "unmeasurable", "the refusal notified nobody")
+
+
 @test("autonomy 2 means a human still merges: a passed PR must be HELD, not merged")
 def test_autonomy_two_holds_the_merge(f: Factory):
     f.issue("0001-widget", state="in-progress")
@@ -1520,6 +1534,13 @@ MUTATIONS = [
         "an issue with no title: line killed the runner before the issue moved to "
         "in-progress, so it was re-dispatched every tick forever",
         "test_untitled_issue_does_not_kill_the_runner"),
+    Mutation(
+        "unreadable-record-is-free", "factory/cost.py",
+        "            unreadable.append(os.path.basename(path))\n",
+        "",
+        "a truncated run record dated today read as zero spend, and the cap let the "
+        "dispatcher run on",
+        "test_daily_cap_fails_closed_on_an_unreadable_record"),
     Mutation(
         "root-secrets-unchecked", "factory/run-workflow.sh",
         '[ -e "$ROOT/$_sf" ] && escalate',

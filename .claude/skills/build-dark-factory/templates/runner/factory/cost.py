@@ -77,8 +77,12 @@ def cmd_record(argv: list[str]) -> int:
     record["cost_usd"] = round(sum(costs), 4) if len(costs) == len(nodes) and nodes else None
     record["cost_complete"] = bool(nodes) and len(costs) == len(nodes)
     os.makedirs(RUNS, exist_ok=True)
-    with open(rec_path, "w", encoding="utf-8") as fh:
+    # Written aside and renamed into place: `cost.py daily` refuses to dispatch on a record
+    # it cannot parse, so a tick must never catch one half-written.
+    tmp_path = rec_path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as fh:
         json.dump(record, fh, indent=2)
+    os.replace(tmp_path, rec_path)
     t = record["tokens"]
     print(f"COST_RECORDED run={run} nodes={len(nodes)} "
           f"in={t['input']} out={t['output']} cached={t['cache_read']} "
@@ -136,21 +140,24 @@ def today_utc() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d")
 
 
-def daily_total(day: str) -> "tuple[float, int, int]":
-    """(usd, runs counted, runs with no cost figure at all) for run ids dated `day`.
+def daily_total(day: str) -> "tuple[float, int, int, list[str]]":
+    """(usd, runs counted, runs with no cost figure, unreadable records) for run ids dated `day`.
 
     Run ids are `<YYYYMMDD>T<HHMMSS>-<workflow>`, so the date is in the filename and no
     clock on the record is trusted. Partial records count what they have: a node that
     reported a cost is spend whether or not its siblings did. Under-counting is the
-    direction this must not err in.
+    direction this must not err in, so a record dated today that cannot be read is
+    returned by name rather than skipped: its spend is unknown, not zero.
     """
     usd = 0.0
     counted = unmeasured = 0
+    unreadable = []
     for path in sorted(glob.glob(os.path.join(RUNS, f"{day}T*.json"))):
         try:
             with open(path, encoding="utf-8") as fh:
                 r = json.load(fh)
         except (OSError, json.JSONDecodeError):
+            unreadable.append(os.path.basename(path))
             continue
         counted += 1
         costs = [n.get("cost_usd") for n in r.get("nodes", [])]
@@ -161,11 +168,12 @@ def daily_total(day: str) -> "tuple[float, int, int]":
             usd += r["cost_usd"]
         else:
             unmeasured += 1
-    return round(usd, 4), counted, unmeasured
+    return round(usd, 4), counted, unmeasured, unreadable
 
 
 def cmd_daily(argv: "list[str]") -> int:
-    """Print today's spend; exit 1 when it has reached the cap or the cap is not a finite number."""
+    """Print today's spend; exit 1 when it has reached the cap, the cap is not a finite number,
+    or a run record dated today cannot be read while the cap is on."""
     cap = None
     if argv:
         try:
@@ -179,11 +187,18 @@ def cmd_daily(argv: "list[str]") -> int:
             print(f"DAILY_CAP_INVALID {argv[0]!r} is not a finite number; refusing rather than guessing")
             return 1
     day = today_utc()
-    usd, counted, unmeasured = daily_total(day)
-    line = f"DAILY_SPEND day={day} usd={usd:.2f} runs={counted} unmeasured={unmeasured}"
+    usd, counted, unmeasured, unreadable = daily_total(day)
+    line = (f"DAILY_SPEND day={day} usd={usd:.2f} runs={counted} unmeasured={unmeasured} "
+            f"unreadable={len(unreadable)}")
     if cap is None or cap <= 0:
         print(line + " cap=off")
         return 0
+    if unreadable:
+        # An unreadable record is spend this cannot see. Under the cap is a claim it
+        # cannot make, so it takes the orchestrator's fail-closed branch instead.
+        print(line + f" cap={cap:.2f} DAILY_RECORD_UNREADABLE {' '.join(unreadable)}; "
+              "fix or remove it under .factory/runs/")
+        return 1
     if usd >= cap:
         print(line + f" cap={cap:.2f} OVER")
         return 1
