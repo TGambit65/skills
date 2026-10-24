@@ -27,7 +27,8 @@ The loop runs unattended, so no step may stop and wait for a human. Tell every s
 - **Local only.** The loop ends at a local commit: no push, force-push, rebase, reset or branch deletion, and
   never weaken a test or check to get green.
 - **A refused write is a stop.** The plan, report and review live under `.claude/`, which Claude Code protects;
-  headless, outside `auto` mode, those writes are refused. Stop at that step and report the refusal; never write
+  headless, the `default`, `acceptEdits` and `dontAsk` modes refuse those writes (`auto` sends them to its
+  classifier; `bypassPermissions` allows them). Stop at that step and report the refusal; never write
   the file another way, and never move it out of `.claude/`, where the next step reads it.
 
 ---
