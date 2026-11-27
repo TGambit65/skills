@@ -8,7 +8,7 @@ A skill is a folder with a `SKILL.md` in it: a name, a description of when to us
 should follow. Your agent loads the description at startup and pulls in the full skill only when the work matches.
 That's the whole idea, and it's why skills scale where a 2,000-line `CLAUDE.md` doesn't.
 
-These 36 skills are the AI Layer from my [Agentic Coding course](https://dynamous.ai). They're built around one
+These skills build on the AI Layer from my [Agentic Coding course](https://dynamous.ai). They're built around one
 loop I run on nearly every ticket:
 
 **prime → plan → implement → validate → review → commit → PR**
@@ -31,7 +31,7 @@ Run these two commands inside Claude Code:
 /plugin install skills@cole-medin
 ```
 
-That's it. All 36 skills, managed and read-only. To pick up a new version, refresh the marketplace and then update
+That's it. All 40 skills, managed and read-only. To pick up a new version, refresh the marketplace and then update
 the plugin from a terminal, and restart Claude Code: refreshing the marketplace alone leaves the installed copy as it
 was.
 
@@ -42,9 +42,9 @@ claude plugin update skills@cole-medin
 
 Plugin skills are namespaced, so you invoke them as `/skills:piv-implement`.
 
-The whole set costs roughly 4,000 tokens of always-on context (just the descriptions; the bodies load only when a
-skill fires): `claude plugin details skills` reports about 4,045 for v1.5.1, with a per-skill breakdown.
-`python3 tools/check_contracts.py --tokens` gives a quicker estimate from the descriptions alone. Disable the plugin
+Only the descriptions stay in context; the bodies load only when a skill fires. `claude plugin details skills`
+reports the always-on cost with a per-skill breakdown, and `python3 tools/check_contracts.py --tokens` gives a
+quicker estimate from the descriptions alone. Disable the plugin
 any time with `/plugin`.
 
 Plugin skills are read-only, so configure the one template, `piv-validate`, in your project rather than in the
@@ -106,6 +106,7 @@ For the last two, restart your session (or run `/skills`) and they'll show up.
 |---|---|
 | `plan-create-prd` | Interviews you into a problem-first PRD. Intent, never engineering decisions |
 | `plan-architecture` | A working session on *how* to build it: stack, data shape, trade-offs, risks |
+| `plan-with-priorities` | Elicits what matters before recommending options, with small spikes and explicit tradeoffs |
 | `piv-slice-epic` | Slices an epic plus its architecture into PIV-sized tickets with a dependency graph |
 | `plan-create-stories` | Turns a simple PRD (no architecture doc) into a flat backlog in Jira, GitHub or a local file; with an architecture doc, use `piv-slice-epic` |
 
@@ -151,6 +152,7 @@ For the last two, restart your session (or run `/skills`) and they'll show up.
 | `system-evolution-review` | Finds the bugs in your *process*, not your code |
 | `second-brain-audit` | Finds facts in your notes that quietly stopped being true, and restructures so they stop |
 | `second-brain-fix` | Works through an audit's findings in batches, behind a backup gate, and updates the findings file as it goes |
+| `second-brain-prd` | Turns a filled-out requirements template into a phased TypeScript build plan for your own AI second brain: memory, hooks, search, integrations, skills, heartbeat, chat, security, deployment |
 
 **Autonomy: hand the whole loop over**
 
@@ -164,6 +166,12 @@ For the last two, restart your session (or run `/skills`) and they'll show up.
 |---|---|
 | `build-signal-engine` | Interviews you about what you need to keep up with, what you missed last month and where it showed up, then builds a system from scratch that reads every source you care about (changelogs, communities, feeds, videos), makes a quick decision on every item, and hands an LLM only what survives for one daily digest. Built a stage at a time into your repo, each proven on real data |
 
+**Security: what your agent runs**
+
+| Skill | What it does |
+|---|---|
+| `agent-config-audit` | Read-only audit of everything a repo's agent config can run on its own: Claude Code hooks and helpers, MCP servers, Codex, Cursor and Gemini CLI config, VS Code folder-open tasks, allow rules, auto-approval and plugin sources. Also checks dependencies (missing lockfiles, known-poisoned releases, code-running `.pth` files), secrets saved in `settings.local.json` or pasted into stored Claude Code and Codex conversations, and known-bad editor extensions. Flags downloads piped to a shell, encoded commands, `ANTHROPIC_BASE_URL` overrides, unpinned MCP packages and secrets in config, explains each in plain words with the fix, and never prints a secret. Point it at a repo before you open it, or at your whole code folder |
+
 **Tools**
 
 | Skill | What it does |
@@ -171,6 +179,7 @@ For the last two, restart your session (or run `/skills`) and they'll show up.
 | `agent-browser` | Browser automation for the agent: navigate, fill, click, screenshot, extract |
 | `ast-grep` | Structural code search by AST pattern instead of text |
 | `drive-screen` | Real desktop control: focus a window, type, paste, click, screenshot. Windows, macOS, Linux |
+| `edit-video` | Edits talking-head footage into a finished video the agent verifies without watching: tight cuts placed with forced alignment, pauses and slips removed, punch-ins and split edits, scene-change transitions, captions, HyperFrames B-roll, inserted segments, and a loudness-normalised, sync-checked export. Run `doctor.py` first |
 | `setup-ai-tutor` | Stands up the course's sample project. Sample-specific, so adapt it or delete it |
 
 ## Using these with other agents

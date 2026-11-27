@@ -286,6 +286,7 @@ NON_SKILL_WORDS = {
     "plan-vs", "piv-shaped", "prime-dependent", "skills-", "system-", "rules-", "plan-and",
     "prime-codebase.md", "build-time", "build-only", "setup-", "ast-", "drive-", "agent-browser",
     "agent-side", "plan-create", "build-implement", "plan-implement", "build-validate",
+    "hooks-reenabled",  # a finding ID that agent-config-audit's script emits, not a skill
 }
 
 
