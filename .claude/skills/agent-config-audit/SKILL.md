@@ -199,5 +199,6 @@ redaction, and that the scan changes no file. Run
 - `references/remediation.md`: concrete fixes for individuals and teams, and what to
   do when a hook already ran.
 - `references/secrets-guard-hook.py`: a PreToolUse hook that blocks the agent from
-  reading secrets (env files, keys, environment dumps). Recommend it whenever the scan
-  finds secrets in config or the user has no secret guard; setup is in remediation.md.
+  reading secrets (env files, keys, environment dumps, credential CLIs) and from
+  irreversible mass deletes, and fails closed. Recommend it whenever the scan finds
+  secrets in config or the user has no secret guard; setup is in remediation.md.
