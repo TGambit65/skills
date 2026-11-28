@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "skills",
-      "version": "1.5.1",
+      "version": "1.11.1",
       "displayName": "Cole's AI Skills",
       "source": "./",
       "skills": [
@@ -33,7 +33,8 @@
         "agentic-coding",
         "ablation",
         "context-engineering",
-        "second-brain"
+        "second-brain",
+        "security"
       ]
     }
   ]
