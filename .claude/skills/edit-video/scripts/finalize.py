@@ -51,6 +51,8 @@ def main():
     reuse = "--use-raw" in a and os.path.exists(raw)
     r = None if name == "--clean" or reuse else subprocess.run(f'"{sys.executable}" "{os.path.join(os.path.dirname(os.path.abspath(__file__)), "render.py")}" "{d}" {name} --quality high --out "{raw}" --skip-inspect', shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     if r is not None: print(r.stdout[-400:])
+    # a failed render can leave an OLDER raw in place; packaging that would ship the previous render as a new version
+    if r is not None and r.returncode: sys.exit(f"render failed (exit {r.returncode}), nothing exported:\n" + (r.stderr[-1500:] or r.stdout[-1500:]))
     if not os.path.exists(raw): sys.exit(r.stderr[-1500:] if r else f"missing {raw}")
     hold = 1.0 if "--hold" in a else 0.0
     if hold:   # export_final.py's ending: the last frame held 1 s under a 0.7 s fade (the speaker looks down to stop recording)

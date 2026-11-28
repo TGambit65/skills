@@ -16,19 +16,24 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import canvas, load, save, ws
 
 def balanced(idx, words, target, hard, nobreak=frozenset()):
-    """Split a clause into near-equal phrases. nobreak: word indices that must stay with the word after them."""
+    """Split a clause into near-equal phrases. nobreak: word indices that must stay with the word after them.
+    One word, or one _keep chain, that is longer than `hard` cannot be split, so it becomes a phrase of its own."""
     L = lambda a, b: len(" ".join(words[j]["w"] for j in idx[a:b])); n = len(idx)
-    k = max(1, -(-L(0, n) // target))
-    while True:
+    if not n: return []
+    unit = lambda a, b: all(idx[j] in nobreak for j in range(a, b - 1))   # one word, or words that may not be parted
+    k0 = min(n, max(1, -(-L(0, n) // target)))
+    # More phrases first, as before; then fewer, because the estimate can exceed what the units allow (one 26-char word
+    # asks for 2 phrases). One phrase per unit always fits, so the search ends: it used to loop forever here.
+    for k in list(range(k0, n + 1)) + list(range(k0 - 1, 0, -1)):
         mean = L(0, n) / k; best = {(0, 0): (0.0, [])}
         for parts in range(1, k + 1):
             for end in range(1, n + 1):
                 c = [(best[(parts - 1, st)][0] + (L(st, end) - mean) ** 2, best[(parts - 1, st)][1] + [(st, end)])
-                     for st in range(end) if (parts - 1, st) in best and (L(st, end) <= hard or end - st == 1)
+                     for st in range(end) if (parts - 1, st) in best and (L(st, end) <= hard or unit(st, end))
                      and not (end < n and idx[end - 1] in nobreak)]
                 if c: best[(parts, end)] = min(c)
         if (k, n) in best: return [idx[a:b] for a, b in best[(k, n)][1]]
-        k += 1
+    return [idx]
 
 def main():
     d, cfg = ws(); tag = sys.argv[sys.argv.index("--tag") + 1] if "--tag" in sys.argv else "v1"
@@ -109,7 +114,8 @@ def main():
     out[-1]["e"] = round(out[-1]["e"] + 0.4, 3)
     save({"words": words, "groups": out}, d, "cut", f"captions_{tag}.json")
     print(f"{len(words)} words -> {len(out)} phrases (max {max(len(g['text']) for g in out)} chars)")
-    for g in out: print(f"  {g['s']:7.2f}  {g['text']}" + ("   SHORT (< 0.5 s on screen)" if g["e"] - g["s"] < 0.5 else ""))
+    for g in out: print(f"  {g['s']:7.2f}  {g['text']}" + ("   SHORT (< 0.5 s on screen)" if g["e"] - g["s"] < 0.5 else "")
+                        + (f"   TOO LONG (> {merge_max} chars, will not fit one line: shorten the _keep phrase or the word)" if len(g["text"]) > merge_max else ""))
 
 if __name__ == "__main__":
     main()

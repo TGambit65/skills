@@ -26,6 +26,8 @@ CHECKS = [
     ("version-bump check", ROOT, [sys.executable, "tools/_test_version_bump.py"]),
     ("drive-screen autodrive", SK / "drive-screen", [sys.executable, "scripts/_test_autodrive.py"]),
     ("drive-screen screenctl", SK / "drive-screen", [sys.executable, "scripts/_test_screenctl.py"]),
+    ("edit-video captions and finalize", SK / "edit-video", [sys.executable, "scripts/_test_edit_video.py"]),
+    ("agent-config-audit scanner", SK / "agent-config-audit", [sys.executable, "scripts/_test_agent_config_audit.py"]),
     ("dark-factory audit runner", SK / "build-dark-factory", [sys.executable, "scripts/_test_audit_runner.py"]),
     ("dark-factory doctor", SK / "build-dark-factory", [sys.executable, "scripts/_test_factory_doctor.py"]),
     ("dark-factory runner (slow)", SK / "build-dark-factory", [sys.executable, "scripts/_test_runner.py"]),
