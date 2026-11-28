@@ -1,5 +1,11 @@
 # Cole's AI Skills
 
+> **This is TGambit65's fork of [coleam00/skills](https://github.com/coleam00/skills).** Every command on this page
+> installs this fork, not the original. It carries all of upstream through plugin 1.11.0, plus an adversarial review of
+> every skill it had at plugin 1.5 ([record](docs/adversarial-review.md)), hardened hooks with a regression corpus, a cross-skill
+> contract checker, and the `second-brain-fix` skill. The skills and the words below are Cole Medin's unless a commit
+> says otherwise; the license is his MIT license, unchanged.
+
 The skills I actually use to build software with coding agents. Straight out of my `.claude/skills/` folder.
 
 ## What this is
@@ -27,8 +33,8 @@ edit. That's the point: read them, take the ones that fit how you work, rewrite 
 Run these two commands inside Claude Code:
 
 ```
-/plugin marketplace add coleam00/skills
-/plugin install skills@cole-medin
+/plugin marketplace add TGambit65/skills
+/plugin install skills@tgambit65
 ```
 
 That's it. All 40 skills, managed and read-only. To pick up a new version, refresh the marketplace and then update
@@ -36,8 +42,8 @@ the plugin from a terminal, and restart Claude Code: refreshing the marketplace 
 was.
 
 ```
-claude plugin marketplace update cole-medin
-claude plugin update skills@cole-medin
+claude plugin marketplace update tgambit65
+claude plugin update skills@tgambit65
 ```
 
 Plugin skills are namespaced, so you invoke them as `/skills:piv-implement`.
@@ -55,7 +61,7 @@ skill: see [Make them yours](#make-them-yours).
 > on their own. If yours doesn't, pass the HTTPS URL directly, which needs no key:
 >
 > ```
-> /plugin marketplace add https://github.com/coleam00/skills.git
+> /plugin marketplace add https://github.com/TGambit65/skills.git
 > ```
 >
 > Setting `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1` in your environment makes the shorthand use HTTPS permanently.
@@ -63,9 +69,9 @@ skill: see [Make them yours](#make-them-yours).
 ### As editable files, in any agent
 
 ```bash
-npx skills add coleam00/skills                             # everything
-npx skills add coleam00/skills --list                      # see what's here first
-npx skills add coleam00/skills --skill piv-plan-implementation piv-implement piv-validate
+npx skills add TGambit65/skills                             # everything
+npx skills add TGambit65/skills --list                      # see what's here first
+npx skills add TGambit65/skills --skill piv-plan-implementation piv-implement piv-validate
 ```
 
 Add `-g` to install globally (`~/.claude/skills/`) instead of into the current project. This route writes real
@@ -77,7 +83,7 @@ reaching for.
 They're only markdown files:
 
 ```bash
-git clone https://github.com/coleam00/skills.git
+git clone https://github.com/TGambit65/skills.git
 cp -r skills/.claude/skills/piv-implement your-project/.claude/skills/
 ```
 
@@ -85,7 +91,7 @@ cp -r skills/.claude/skills/piv-implement your-project/.claude/skills/
 
 This works fine too:
 
-> Clone https://github.com/coleam00/skills, look at the skills in `.claude/skills/`, and copy the ones
+> Clone https://github.com/TGambit65/skills, look at the skills in `.claude/skills/`, and copy the ones
 > that fit this project into my `.claude/skills/` folder. Tell me which ones you picked and why.
 
 For the last two, restart your session (or run `/skills`) and they'll show up.
@@ -191,8 +197,8 @@ The `npx skills` CLI installs to 75+ agents (Codex, Cursor, Copilot, Cline, Wind
 rest) into whatever directory each one expects:
 
 ```bash
-npx skills add coleam00/skills -a codex
-npx skills add coleam00/skills -a cursor -a claude-code
+npx skills add TGambit65/skills -a codex
+npx skills add TGambit65/skills -a cursor -a claude-code
 ```
 
 If your agent has no skills mechanism at all, the fallback is boring and effective: keep the folder in your repo

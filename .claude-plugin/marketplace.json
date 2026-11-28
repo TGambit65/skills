@@ -1,16 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
-  "name": "cole-medin",
-  "description": "Cole Medin's agent skills for building software with coding agents",
+  "name": "tgambit65",
+  "description": "TGambit65's fork of Cole Medin's agent skills for building software with coding agents",
   "owner": {
-    "name": "Cole Medin",
-    "url": "https://github.com/coleam00"
+    "name": "TGambit65",
+    "url": "https://github.com/TGambit65"
   },
   "plugins": [
     {
       "name": "skills",
-      "version": "1.11.1",
-      "displayName": "Cole's AI Skills",
+      "version": "1.11.2",
+      "displayName": "Cole's AI Skills (TGambit65 fork)",
       "source": "./",
       "skills": [
         "./.claude/skills"
@@ -20,8 +20,8 @@
         "name": "Cole Medin",
         "url": "https://github.com/coleam00"
       },
-      "homepage": "https://github.com/coleam00/skills",
-      "repository": "https://github.com/coleam00/skills",
+      "homepage": "https://github.com/TGambit65/skills",
+      "repository": "https://github.com/TGambit65/skills",
       "license": "MIT",
       "category": "productivity",
       "keywords": [
