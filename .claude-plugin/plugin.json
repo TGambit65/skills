@@ -1,15 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "skills",
-  "displayName": "Cole's AI Skills",
-  "version": "1.11.1",
+  "displayName": "Cole's AI Skills (TGambit65 fork)",
+  "version": "1.11.3",
   "description": "The PIV loop (plan, implement, validate, review, commit, PR) plus priming, planning, worktrees, and the meta-skills for building your own AI Layer.",
   "author": {
     "name": "Cole Medin",
     "url": "https://github.com/coleam00"
   },
-  "homepage": "https://github.com/coleam00/skills",
-  "repository": "https://github.com/coleam00/skills",
+  "homepage": "https://github.com/TGambit65/skills",
+  "repository": "https://github.com/TGambit65/skills",
   "license": "MIT",
   "keywords": [
     "piv-loop",

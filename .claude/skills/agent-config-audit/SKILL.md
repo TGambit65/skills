@@ -140,9 +140,21 @@ to an already-trusted repo ran on the next launch with no new prompt. Show what 
 in the agent config and who changed it:
 
 ```bash
-git log -p -- .claude .mcp.json .codex .cursor .vscode .gemini AGENTS.md CLAUDE.md
-git diff HEAD@{1} -- .claude .mcp.json .codex .cursor .vscode AGENTS.md CLAUDE.md   # since the last pull
+git log --stat --format='%h %an %ad %s' -- .claude .mcp.json .codex .cursor .vscode .gemini AGENTS.md CLAUDE.md
+git diff --stat HEAD@{1} -- .claude .mcp.json .codex .cursor .vscode AGENTS.md CLAUDE.md   # since the last pull
 git ls-files | grep settings.local.json   # should print nothing
+```
+
+These show who changed which file and when, and print no file contents. Never add `-p`,
+and never run a plain `git diff` or `git show` on these paths: a patch prints every
+value ever committed there, including secrets that were removed since, into this
+conversation, and conversations are stored. To see what a change did, check that commit
+out into a temporary worktree and scan it, so the values stay redacted:
+
+```bash
+git worktree add --detach ../agent-audit-tmp <commit>
+python <skill>/scripts/agent_config_audit.py ../agent-audit-tmp
+git worktree remove ../agent-audit-tmp
 ```
 
 The classic sign is a config change inside a commit whose message is about something
@@ -187,5 +199,6 @@ redaction, and that the scan changes no file. Run
 - `references/remediation.md`: concrete fixes for individuals and teams, and what to
   do when a hook already ran.
 - `references/secrets-guard-hook.py`: a PreToolUse hook that blocks the agent from
-  reading secrets (env files, keys, environment dumps). Recommend it whenever the scan
-  finds secrets in config or the user has no secret guard; setup is in remediation.md.
+  reading secrets (env files, keys, environment dumps, credential CLIs) and from
+  irreversible mass deletes, and fails closed. Recommend it whenever the scan finds
+  secrets in config or the user has no secret guard; setup is in remediation.md.

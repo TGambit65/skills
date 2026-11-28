@@ -59,18 +59,27 @@ publish credentials.
   (`os.environ["API_KEY"]`, `process.env.API_KEY`). Never paste a live key into a prompt:
   agent sessions are stored.
 - Enforce it with a hook, not a rule. `references/secrets-guard-hook.py` is a PreToolUse
-  hook that blocks every route to a credential (env files, SSH keys, `.pem`, `.aws`,
-  `.netrc`, dumping the process environment) and `rm -rf`, and allows a committed
-  `.env.example`. Copy it to `.claude/hooks/pre_tool_use_secrets.py` and register it:
+  hook that blocks the routes to a credential it can see (env files, SSH keys, `.pem`,
+  `.key`, `.aws`, `.netrc`, `.npmrc`, dumping the process environment, credential CLIs
+  such as `gh auth token`) and irreversible mass deletes (`rm -rf` in any spelling,
+  `find -delete`, `git clean -f`, `git reset --hard`, `git push --force`), and allows a
+  committed `.env.example`. It fails closed: if the hook itself crashes, the call is
+  blocked. It is a deny-list, so treat it as a strong speed bump, not a guarantee; its
+  header lists what it cannot catch. Copy it to `.claude/hooks/pre_tool_use_secrets.py`
+  and register it:
 
   ```json
   { "hooks": { "PreToolUse": [ { "matcher": "Read|Edit|MultiEdit|Write|NotebookEdit|Bash|PowerShell|Grep|Glob",
     "hooks": [ { "type": "command", "command": "uv run ${CLAUDE_PROJECT_DIR}/.claude/hooks/pre_tool_use_secrets.py", "timeout": 15 } ] } ] } }
   ```
 
-  Tested on Claude Code 2.1.330 on Windows (2026-11-21): asked to read the env file,
-  the agent was blocked and did not try to work around it; asked to call an API with
-  the key, it wrote code that loads it from the environment.
+  An earlier, weaker version of this hook was tested on Claude Code 2.1.330 on Windows
+  (2026-11-21): asked to read the env file, the agent was blocked and did not try to work
+  around it; asked to call an API with the key, it wrote code that loads it from the
+  environment. The version shipped here has not been re-run in a live session. It is
+  covered by a regression corpus of 403 allow/block cases, which lives beside the
+  original in the repository's `hooks/` folder (`_test_hooks.py`, with `README.md`) and
+  is not shipped with this skill.
 - Lock out bypass mode: `{ "permissions": { "disableBypassPermissionsMode": "disable" } }`.
 - On macOS, Linux and WSL2, turn on the sandbox with `/sandbox`. It does not run on
   native Windows.

@@ -31,6 +31,8 @@ What it checks
                      (path prefixes, file names, section names). See HANDOFFS below.
  9. readme           README lists every skill and states the right count.
 10. manifests        plugin.json and marketplace.json agree on version.
+11. hook-copies      a hook that a skill ships as a reference is byte-identical to the tested
+                     hook in `hooks/` (the corpus in `hooks/_test_hooks.py` runs only on that one).
 """
 from __future__ import annotations
 
@@ -45,6 +47,12 @@ ROOT = Path(__file__).resolve().parent.parent
 SKILLS = ROOT / ".claude" / "skills"
 README = ROOT / "README.md"
 MANIFESTS = [ROOT / ".claude-plugin" / "plugin.json", ROOT / ".claude-plugin" / "marketplace.json"]
+# (copy shipped inside a skill, tested original). A skill installed as a plugin ships only its own
+# folder, so it carries a copy; the copy must not drift from the hook the regression corpus covers.
+HOOK_COPIES = [
+    (ROOT / ".claude" / "skills" / "agent-config-audit" / "references" / "secrets-guard-hook.py",
+     ROOT / "hooks" / "pre_tool_use_secrets.py"),
+]
 
 DESC_LIMIT = 1024
 NAME_LIMIT = 64
@@ -368,6 +376,17 @@ def check_manifests(rep: Report) -> None:
         rep.fail("manifests", ".claude-plugin/", f"version mismatch: {versions}")
 
 
+def check_hook_copies(rep: Report) -> None:
+    """Each hook a skill ships as a reference matches the tested hook byte for byte."""
+    for copy, original in HOOK_COPIES:
+        where = str(copy.relative_to(ROOT))
+        if not copy.is_file() or not original.is_file():
+            rep.fail("hook-copies", where, f"missing: needs both this file and {original.relative_to(ROOT)}")
+        elif copy.read_bytes() != original.read_bytes():
+            rep.fail("hook-copies", where,
+                     f"differs from {original.relative_to(ROOT)}; copy the tested hook over it")
+
+
 def token_table(skills: dict) -> list[dict]:
     """Per-skill description and body sizes, for the always-loaded budget table."""
     rows = []
@@ -400,6 +419,7 @@ def main(argv: list[str]) -> int:
                check_abs_paths, check_dynamic_lines, check_prefilled, check_handoffs, check_readme):
         fn(skills, rep)
     check_manifests(rep)
+    check_hook_copies(rep)
 
     rows = token_table(skills)
     totals = {
